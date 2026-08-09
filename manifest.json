@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "AnyPass リセール出品チケット監視",
+  "version": "1.0.0",
+  "description": "AnyPassのリセールチケット一覧(resale-list)を監視し、条件に合うチケットが出品されたら自動で検索条件を設定し、見つかったら該当チケットへ遷移します。",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://store.anypass.jp/resale-list*"
+  ],
+  "action": {
+    "default_popup": "options.html",
+    "default_title": "AnyPass 出品チケット監視 - 設定"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://store.anypass.jp/resale-list*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}
