@@ -1,119 +1,89 @@
-# AnyPass 出品チケット監視 拡張機能
+# AnyPASS リセール監視（Playwright）
 
-`https://store.anypass.jp/resale-list` を監視し、設定した条件のチケットが
-出品されたら自動でリンクをクリック(遷移)するChrome拡張機能です。
-決済・購入確定などの操作は行いません(該当チケットへのリンククリックまで)。
+`https://store.anypass.jp/resale-list` を headless Playwright で定期的に検索する
+Node.js CLI です。指定条件に一致するチケットが見つかると、詳細 URL と一覧の
+スクリーンショットを保存し、詳細ページを開いて終了します。購入・決済・購入確定の
+操作は行いません。
 
-## ⚠️ 重要な前提
+## 必要環境
 
-サイトの `robots.txt` が自動アクセスを制限しているため、実際のHTML構造を
-事前に確認できていません。`content.js` 冒頭の `SELECTORS` は仮の値です。
-**必ず動作確認・調整を行ってから使用してください。**
+- Node.js 20 以上
+- Chromium を起動できる環境
 
-## スマートフォンでのインストールについて
+## セットアップ
 
-**結論から言うと、標準のChrome(Android版・iOS版)では、この拡張機能はインストールできません。**
-
-- **Android版Chrome**: 2026年現在、Android版ChromeはChromeウェブストアの拡張機能にも、
-  今回のような「パッケージ化されていない拡張機能」の読み込みにも対応していません。
-  `chrome://extensions` 相当の管理画面自体がありません。
-- **iPhone/iPad版Chrome・Safari**: iOS版ブラウザの拡張機能は「Safari Web Extension」という
-  別形式です。今回作成したChrome拡張機能(Manifest V3)をそのまま使うことはできず、
-  Xcodeでの変換作業が別途必要になります。現実的な選択肢ではありません。
-
-### Androidで動かしたい場合の代替策
-
-Chromium系だが拡張機能の開発者読み込みに対応したブラウザを使うと、PCに近い手順で
-動作させられる場合があります(2026年時点の代表例。将来的に対応状況が変わる可能性があります)。
-
-- **Kiwi Browser**: デベロッパーモードから「パッケージ化されていない拡張機能を読み込む」に
-  相当する機能があり、フォルダ(またはzip化したもの)をスマホ内にコピーして読み込めます。
-- **Yandex Browser (Android版)** なども拡張機能対応を謳っている場合があります。
-
-いずれもGoogle公式のChromeではなく、Chromiumベースのサードパーティ製ブラウザです。
-導入する場合は、開発元・提供元の信頼性をご自身でご確認のうえ利用してください。
-
-大まかな手順(Kiwi Browserの例):
-
-1. Kiwi BrowserをGoogle Playからインストール
-2. このフォルダ(`anypass-ticket-watcher`)をスマホ内のストレージにコピー
-   (PCからケーブル転送、クラウドストレージ経由でダウンロード、zip化してファイルアプリで展開、など)
-3. Kiwi Browserのメニュー →「Extensions」を開く
-4. 右下の「+」→「パッケージ化されていない拡張機能を読み込む(Load unpacked)」を選択
-5. コピーした `anypass-ticket-watcher` フォルダを選択
-
-### 現実的なおすすめ
-
-チケットの監視・自動遷移という用途の特性上、**PC版Chromeでの利用を基本とする**ことを
-おすすめします。外出先で使いたい場合は、PCを起動したまま自宅等に置いておき、
-リモートデスクトップ(Chromeリモートデスクトップ等)でスマホからPCを操作する方法が
-最も安定して動作します。
-
-## インストール方法(PC)
-
-1. `chrome://extensions` を開く
-2. 右上の「デベロッパーモード」をONにする
-3. 「パッケージ化されていない拡張機能を読み込む」をクリック
-4. このフォルダ(`anypass-ticket-watcher`)を選択
-
-## セレクタの調整方法
-
-1. 対象ページ (`store.anypass.jp/resale-list`) を開く
-2. 調べたい要素(例:「チケット絞り込み」ボタン)を右クリック →「検証」
-3. DevToolsで該当要素を選択し、`id` / `class` / `name` などの
-   ユニークに特定できる属性を確認する
-4. `content.js` の `SELECTORS` オブジェクトの該当項目を、確認した
-   セレクタに書き換える
-
-調整が必要な項目:
-
-| キー | 説明 | 状態 |
-|---|---|---|
-| `filterOpenButton` | 「チケット絞り込み」ボタン | ✅ 判明済み: `#js-ticket__filler` |
-| `freeWordInput` | フリーワード入力欄 | ✅ 判明済み: `input[name="free_word"]` |
-| `excludeInProgressCheckbox` | 「購入手続き中は除く」チェックボックス | ✅ 判明済み: `input[name="resale_item_not_being_purchased"]` |
-| `searchSubmitButton` / `searchSubmitButtonText` | 検索実行ボタン(class + テキストで特定) | ✅ 判明済み: `button[type="submit"].button__element.inverted` + テキスト「検索」 |
-| `ticketItem` | チケット一覧の各アイテム(`<a>`タグ自体がリンク) | ✅ 判明済み: `a.item.resale-list-item` |
-| `ticketDate` | アイテム内の公演日表示 | ✅ 判明済み: `p.date span[wovn-ignore]` |
-| `ticketNum` | アイテム内の枚数表示 | ✅ 判明済み: `span.ticket-info span[wovn-ignore]` |
-| `ticketLink` | (不要) `ticketItem` 自体が `<a>` タグのためクリック対象は `ticketItem` そのもの |
-
-検索ボタンをクリックした後、ページ遷移ではなく **同一ページ内でAJAX的に
-一覧が更新される** サイト構造だった場合は、`content.js` の `main()` 内、
-コメントアウトされている以下の2行を有効化してください。
-
-```js
-// await sleep(1000);
-// await checkTicketsAndAct(config);
+```powershell
+npm install
+npm run setup-browser
+Copy-Item config.example.json config.json
 ```
 
-## 設定方法
+`config.json` を編集して監視条件を設定します。少なくとも `free_word`、`p_date`、
+`num_of_ticket` のいずれか一つが必要です。条件なしで最初の出品を検出する事故を
+避けるため、空の条件では起動しません。
 
-拡張機能アイコンをクリックすると設定画面が開きます。
+```json
+{
+  "free_word": "アーティスト名またはツアー名",
+  "p_date": "2026/10/15",
+  "num_of_ticket": 2,
+  "reload_time": 10,
+  "headless": true,
+  "open_match_page": true,
+  "user_data_dir": ".anypass-profile",
+  "screenshot_dir": "output/playwright"
+}
+```
 
-- **free_word**: 検索フリーワード
-- **p_date**: 公演日(一覧の表記に合わせて入力。部分一致で判定します)
-- **num_of_ticket**: 購入枚数(部分一致で判定します)
-- **reload_time**: リロード間隔(秒)。未入力の場合は自動的に4秒になります
+| 設定 | 内容 |
+| --- | --- |
+| `free_word` | サイトのフリーワード検索に入力する文字列。空欄可。 |
+| `p_date` | 一覧に表示される公演日。空白・全角数字を無視して部分一致で照合。 |
+| `num_of_ticket` | 希望枚数。結果の「× N枚」と完全一致で照合。3 以上ではサイト側の「3枚以上」フィルターを使用。 |
+| `reload_time` | 未検出時の再検索間隔（秒）。最低 3 秒、既定 10 秒。 |
+| `headless` | `true` で画面を表示せずに実行。 |
+| `open_match_page` | 一致時に詳細ページへ移動するか。移動後も購入操作はしない。 |
+| `user_data_dir` | Cookie・ログイン状態を保存する Chromium プロファイルのパス。 |
+| `screenshot_dir` | 一致時に一覧を保存するディレクトリ。 |
 
-## 動作の流れ
+## 実行
 
-1. 検索条件が未適用の場合、「絞り込み」ボタン→フリーワード入力→
-   「購入手続き中は除く」ON→検索ボタンクリック、を自動実行
-2. 一覧を確認し、チケットが0件、または `p_date` / `num_of_ticket` に
-   一致するものがなければ、`reload_time` 秒後にページを再読み込み
-3. 条件に一致するチケットが見つかったら、そのチケットのリンクをクリック
-   (購入確定操作は行わないため、その後は手動で操作してください)
+監視を開始します。
 
-画面右下に現在の状態を表示する小さなオーバーレイが出るので、
-動作確認・デバッグに利用できます。
+```powershell
+npm start -- --config config.json
+```
 
-## 利用にあたっての注意
+1 回だけ検索して終了する場合は `--once` を付けます。
 
-- 本拡張機能はサイトの利用規約に違反しない範囲でご利用ください。
-  自動アクセス・bot行為を禁止している場合があります。
-- `reload_time` を極端に短く設定すると、サーバーへの負荷やアクセス制限
-  (アカウント停止等)につながる可能性があります。常識的な間隔での利用を
-  推奨します。
-- サイトのUI変更によりセレクタが合わなくなった場合は、都度DevToolsで
-  再調整してください。
+```powershell
+npm start -- --config config.json --once
+```
+
+ログイン状態が必要な場合や初回の確認時は、ブラウザを表示して起動します。ログイン後の
+状態は `user_data_dir` に保存され、次回以降の headless 実行でも使われます。
+
+```powershell
+npm start -- --config config.json --headed --once
+```
+
+停止は `Ctrl+C` です。プロファイル、設定ファイル、検出時のスクリーンショットは
+Git 管理から除外されています。
+
+## 検証
+
+```powershell
+npm test
+```
+
+テストは表示文字列の正規化、枚数の抽出、設定値の検証を確認します。実サイトの検索は
+`--once` で実行できます。
+
+## 注意
+
+- 実サイトの利用規約と自動アクセスに関するルールを確認してから利用してください。
+- 検索間隔を極端に短く設定しないでください。
+- サイトの UI が変わった場合は、`src/index.js` のフォーム・一覧セレクタを見直してください。
+
+旧 Chrome 拡張機能のソースは履歴互換のため残していますが、通常の利用はこの Playwright
+CLI を対象にしています。

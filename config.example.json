@@ -1,0 +1,10 @@
+{
+  "free_word": "アーティスト名またはツアー名",
+  "p_date": "2026/10/15",
+  "num_of_ticket": 2,
+  "reload_time": 10,
+  "headless": true,
+  "open_match_page": true,
+  "user_data_dir": ".anypass-profile",
+  "screenshot_dir": "output/playwright"
+}
