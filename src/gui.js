@@ -75,6 +75,9 @@ function mergeConfig(existing, patch) {
     'headless', 'open_match_page', 'auto_purchase', 'user_data_dir', 'screenshot_dir',
   ];
   for (const field of fields) if (Object.hasOwn(input, field)) merged[field] = input[field];
+  // 自動購入は一致した出品の詳細画面で続行するため、詳細ページを開く設定が必須。
+  // GUI では依存する設定を自動で有効にし、保存時の分かりにくい検証エラーを防ぐ。
+  if (merged.auto_purchase === true) merged.open_match_page = true;
   delete merged.budget;
   // 旧版で保存された認証情報は、GUI で保存し直したタイミングで安全に削除する。
   delete merged.auth;

@@ -22,6 +22,13 @@ function setMessage(text, isError = false) { message.textContent = text; message
 function renderConfig(config) {
   for (const name of ['free_word', 'p_date', 'p_date_from', 'p_date_to', 'num_of_ticket', 'max_price_per_ticket', 'reload_time']) input(name).value = config[name] ?? '';
   for (const name of ['headless', 'open_match_page', 'auto_purchase']) input(name).checked = Boolean(config[name]);
+  syncAutoPurchaseOptions();
+}
+function syncAutoPurchaseOptions(active = false) {
+  const openMatchPage = input('open_match_page');
+  const autoPurchase = input('auto_purchase');
+  if (autoPurchase.checked) openMatchPage.checked = true;
+  openMatchPage.disabled = active || autoPurchase.checked;
 }
 function configFromForm() {
   return {
@@ -42,6 +49,7 @@ function renderStatus(status) {
   const active = currentState === 'running' || currentState === 'stopping';
   startButton.disabled = active; saveButton.disabled = active; stopButton.hidden = !active;
   for (const element of form.querySelectorAll('input')) element.disabled = active;
+  syncAutoPurchaseOptions(active);
   if (!status.logs?.length) { logList.innerHTML = '<li class="empty-log">監視を開始すると、ここに状況が表示されます。</li>'; return; }
   logList.replaceChildren(...status.logs.map((entry) => {
     const item = document.createElement('li');
@@ -58,6 +66,10 @@ async function saveConfig() {
   setMessage('設定を保存しました。');
 }
 saveButton.addEventListener('click', async () => { try { await saveConfig(); } catch (error) { setMessage(error.message, true); } });
+input('auto_purchase').addEventListener('change', () => {
+  syncAutoPurchaseOptions();
+  if (input('auto_purchase').checked) setMessage('自動購入では詳細ページを開く設定を自動的に有効にしました。');
+});
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   try { await saveConfig(); await request('/api/start', { method: 'POST' }); setMessage('監視を開始しました。'); await refreshStatus(); } catch (error) { setMessage(error.message, true); }

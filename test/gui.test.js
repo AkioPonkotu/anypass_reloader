@@ -35,3 +35,13 @@ test('mergeConfig removes legacy authentication data and keeps card data when bl
   assert.equal(Object.hasOwn(merged, 'auth'), false);
   assert.equal(merged.credit_card.number, '4111111111111111');
 });
+
+test('mergeConfig enables the required detail page when auto purchase is enabled', () => {
+  const merged = mergeConfig(
+    { free_word: 'SOPHIA', open_match_page: false },
+    { auto_purchase: true, open_match_page: false }
+  );
+
+  assert.equal(merged.auto_purchase, true);
+  assert.equal(merged.open_match_page, true);
+});
