@@ -5,6 +5,7 @@ const { readConfig } = require('./config');
 const { findMatchingTicket } = require('./tickets');
 const {
   advanceToPaymentEntry,
+  confirmPayment,
   fillPaymentEntry,
   loginIfNeeded,
   setPurchaseTicketCount,
@@ -143,10 +144,10 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function waitForManualCheckout(page, isStopRequested) {
-  // 確認画面（およびユーザーが続けた 3D セキュア画面）を閉じないため、明示的な停止または
-  // ウィンドウを閉じる操作までプロセスを維持する。
-  while (!isStopRequested() && !page.isClosed()) {
+async function waitForManualCheckout(context, isStopRequested) {
+  // 3D セキュアが別タブで開くケースにも対応し、すべての画面を閉じるか明示的に停止するまで
+  // コンテキストを維持する。
+  while (!isStopRequested() && context.pages().some((page) => !page.isClosed())) {
     await delay(500);
   }
 }
@@ -155,8 +156,8 @@ async function run(options) {
   const config = readConfig(options.configPath);
   if (options.headed) config.headless = false;
 
-  // Chromium は起動後に headless/headed を切り替えられない。決済情報入力画面と
-  // 3D セキュア直前を必ず利用者が見られるよう、自動購入時は最初から headed にする。
+  // Chromium は起動後に headless/headed を切り替えられない。決済確認後の 3D セキュアを
+  // 必ず利用者が操作できるよう、自動購入時は最初から headed にする。
   if (config.autoPurchase && config.headless) {
     config.headless = false;
     log('auto_purchase が有効なため、決済画面以降を表示できるようブラウザを headed で起動します。');
@@ -195,9 +196,10 @@ async function run(options) {
             await setPurchaseTicketCount(page, config.ticketCount);
             await advanceToPaymentEntry(page);
             await fillPaymentEntry(page, config.creditCard);
+            await confirmPayment(page);
             await page.bringToFront();
-            log('決済情報を入力しました。確認ボタンは押していません。3Dセキュア開始前に画面で内容を確認してください。ウィンドウを閉じるか Ctrl+C で終了します。');
-            await waitForManualCheckout(page, () => stopRequested);
+            log('決済確認ボタンを押しました。3Dセキュアは表示中のブラウザで利用者自身が完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
+            await waitForManualCheckout(context, () => stopRequested);
           } else {
             log('該当チケットの詳細ページを開きました。購入・確定操作は行いません。');
           }

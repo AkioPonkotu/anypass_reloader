@@ -2,12 +2,13 @@ const PAYMENT_NUMBER_SELECTOR = '#ccNumber_disp';
 const PAYMENT_MONTH_SELECTOR = '#ccExpirationMonth';
 const PAYMENT_YEAR_SELECTOR = '#ccExpirationYear_disp';
 const PAYMENT_CVV_SELECTOR = '#securityCode';
+const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
 const LOGIN_SUBMIT_NAMES = /ログイン|sign in|log in|次へ|continue/i;
 const INITIAL_CHECKOUT_NAMES = /購入手続きへ|購入する|お支払いへ|支払いへ|checkout/i;
 // 最初の詳細ページ以降は「購入する」のような確定に見える文言を自動クリックしない。
-// これにより、決済代行画面の確認・3D セキュア開始は常に利用者が判断できる。
+// 決済代行画面では明示的に「確認」だけをクリックし、3D セキュアの認証自体は利用者が行う。
 const CONTINUE_TO_PAYMENT_NAMES = /購入手続きへ|お支払いへ|支払いへ|checkout/i;
 
 async function firstVisibleLocator(locators) {
@@ -130,8 +131,19 @@ async function fillPaymentEntry(page, creditCard) {
   await page.locator(PAYMENT_CVV_SELECTOR).fill(creditCard.cvv);
 }
 
+async function confirmPayment(page) {
+  await clickFirstVisible(
+    [
+      page.getByRole('button', { name: PAYMENT_CONFIRMATION_NAMES }),
+      page.getByRole('link', { name: PAYMENT_CONFIRMATION_NAMES }),
+    ],
+    '決済確認ボタン'
+  );
+}
+
 module.exports = {
   advanceToPaymentEntry,
+  confirmPayment,
   fillPaymentEntry,
   loginIfNeeded,
   setPurchaseTicketCount,
