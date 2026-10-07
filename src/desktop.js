@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const electron = require('electron');
-const { app, BaseWindow, WebContentsView, ipcMain, safeStorage } = electron;
+const { app, BaseWindow, Menu, Tray, WebContentsView, ipcMain, nativeImage, safeStorage } = electron;
 const { chromium } = require('playwright');
 const { isElectronMainProcess } = require('./electron-main');
 const { normalizeConfig } = require('./config');
@@ -14,6 +14,25 @@ const { isLoginRequired, openLoginPageIfNeeded } = require('./purchase');
 const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
 const DEBUG_PORT = 9412;
 const LOG_LIMIT = 200;
+const AUTHENTICATION_PARTITION = 'persist:anypass-watcher';
+
+function trayIcon() {
+  // パッケージに別のバイナリアセットを追加せず、Windows の通知領域で判別できる
+  // 小さな単色アイコンを生成する。ログイン状態などの利用者情報は含めない。
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#245f4b"/><path d="M4 8h8M8 4v8" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>';
+  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
+}
+
+async function flushPersistentSession(session) {
+  if (!session) return [];
+
+  // サーバーが persistent として発行した Cookie と DOM Storage だけを同期する。
+  // session Cookie の期限を延長したり、値を独自に書き出したりはしない。
+  const operations = [];
+  if (typeof session.flushStorageData === 'function') operations.push(session.flushStorageData());
+  if (typeof session.cookies?.flushStore === 'function') operations.push(session.cookies.flushStore());
+  return Promise.allSettled(operations);
+}
 
 function defaultConfigPath(electronApp = app) {
   // インストール先は通常ユーザーが書き込めない。配布版は Windows の userData
@@ -380,6 +399,7 @@ function createDesktopController({
     stop,
     saveConfig,
     refreshSearchOptions,
+    flushPersistentStorage: () => flushPersistentSession(views?.browserView?.webContents?.session),
   };
 }
 
@@ -410,7 +430,7 @@ async function createViews({ onUiViewCreated } = {}) {
   });
   const browserView = new WebContentsView({
     webPreferences: {
-      partition: 'persist:anypass-watcher',
+      partition: AUTHENTICATION_PARTITION,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -470,20 +490,67 @@ async function main() {
   app.commandLine.appendSwitch('remote-debugging-port', String(DEBUG_PORT));
 
   let desktop;
-  app.on('second-instance', () => {
+  let tray;
+  let isQuitting = false;
+  let quitInProgress = false;
+
+  const showMainWindow = () => {
     const window = BaseWindow.getAllWindows()[0];
-    if (window) {
-      if (window.isMinimized()) window.restore();
-      window.focus();
+    if (!window) return;
+    if (window.isMinimized()) window.restore();
+    window.show();
+    window.focus();
+  };
+
+  const quitAfterFlushingStorage = async () => {
+    if (isQuitting || quitInProgress) return;
+    quitInProgress = true;
+    try {
+      const results = await desktop?.flushPersistentStorage();
+      for (const result of results || []) {
+        if (result.status === 'rejected') console.error(`認証プロファイルの保存に失敗しました: ${result.reason?.message || result.reason}`);
+      }
+    } finally {
+      // 書き込みエラーがあっても終了要求を永久に止めない。次回起動時にはサーバーの
+      // 認証方針に従って再ログインを求める。
+      isQuitting = true;
+      app.quit();
     }
+  };
+
+  app.on('second-instance', () => {
+    showMainWindow();
   });
   await app.whenReady();
   desktop = createDesktopController(options);
-  await desktop.create();
+  const views = await desktop.create();
+  // 通常の閉じる操作ではプロセスを終了せず、認証 Cookie がメモリ上にある間は
+  // セッションを維持する。再表示は通知領域のアイコンまたはアプリの再起動で行える。
+  views.window.on('close', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    views.window.hide();
+  });
+  tray = new Tray(trayIcon());
+  tray.setToolTip('AnyPASS Watcher（認証状態を維持中）');
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: '画面を開く', click: showMainWindow },
+    { type: 'separator' },
+    { label: '終了', click: () => { void quitAfterFlushingStorage(); } },
+  ]));
+  tray.on('click', showMainWindow);
+  app.on('before-quit', (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    void quitAfterFlushingStorage();
+  });
   app.on('activate', async () => {
     if (BaseWindow.getAllWindows().length === 0) await desktop.create();
+    else showMainWindow();
   });
-  app.on('window-all-closed', () => app.quit());
+  app.on('window-all-closed', () => {
+    if (isQuitting) app.quit();
+  });
 }
 
 // Electron CLI は CommonJS のエントリポイントを dynamic import するため、
@@ -501,4 +568,11 @@ if (isElectronMainProcess()) {
   }
 }
 
-module.exports = { createDesktopController, defaultConfigPath, notifyAndFocus, parseDesktopArguments };
+module.exports = {
+  AUTHENTICATION_PARTITION,
+  createDesktopController,
+  defaultConfigPath,
+  flushPersistentSession,
+  notifyAndFocus,
+  parseDesktopArguments,
+};

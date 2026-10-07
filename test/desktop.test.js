@@ -1,10 +1,36 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { defaultConfigPath, notifyAndFocus, parseDesktopArguments } = require('../src/desktop');
+const {
+  AUTHENTICATION_PARTITION,
+  defaultConfigPath,
+  flushPersistentSession,
+  notifyAndFocus,
+  parseDesktopArguments,
+} = require('../src/desktop');
 
 test('parseDesktopArguments accepts a config file', () => {
   assert.deepEqual(parseDesktopArguments(['--config', 'desktop.json']), { configPath: 'desktop.json' });
   assert.throws(() => parseDesktopArguments(['--config']), /設定ファイル/);
+});
+
+test('desktop uses a stable persistent partition for AnyPASS authentication', () => {
+  assert.equal(AUTHENTICATION_PARTITION, 'persist:anypass-watcher');
+});
+
+test('flushPersistentSession flushes only the browser-managed persistent stores', async () => {
+  const calls = [];
+  const results = await flushPersistentSession({
+    flushStorageData: async () => { calls.push('storage'); },
+    cookies: { flushStore: async () => { calls.push('cookies'); } },
+  });
+
+  assert.deepEqual(calls.sort(), ['cookies', 'storage']);
+  assert.deepEqual(results.map((result) => result.status), ['fulfilled', 'fulfilled']);
+});
+
+test('flushPersistentSession tolerates unavailable stores', async () => {
+  assert.deepEqual(await flushPersistentSession(), []);
+  assert.deepEqual(await flushPersistentSession({}), []);
 });
 
 test('defaultConfigPath uses the app user data directory for a packaged app', () => {
