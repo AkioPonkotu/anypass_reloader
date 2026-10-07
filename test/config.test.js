@@ -63,44 +63,31 @@ test('normalizeConfig rejects invalid or reversed date ranges', () => {
   );
 });
 
-test('normalizeConfig accepts checkout card data and normalizes card fields', () => {
+test('normalizeConfig does not retain checkout card data from config.json', () => {
   const config = normalizeConfig(
     {
       free_word: 'SOPHIA',
       num_of_ticket: 2,
       auto_purchase: true,
-      credit_card: {
-        number: '4111-1111 1111-1111',
-        expiration_month: '7',
-        expiration_year: '2028',
-        cvv: '123',
-      },
     },
     'C:/work/anypass'
   );
 
   assert.equal(config.autoPurchase, true);
-  assert.deepEqual(config.creditCard, {
-    number: '4111111111111111',
-    expirationMonth: '07',
-    expirationYear: '28',
-    cvv: '123',
-  });
+  assert.equal(Object.hasOwn(config, 'creditCard'), false);
 });
 
-test('normalizeConfig requires complete card data for checkout', () => {
+test('normalizeConfig requires the non-sensitive settings for checkout', () => {
   assert.throws(
     () =>
       normalizeConfig(
         {
           free_word: 'SOPHIA',
-          num_of_ticket: 2,
           auto_purchase: true,
-          credit_card: { number: '123', expiration_month: '13', expiration_year: 'x', cvv: '1' },
         },
         'C:/work/anypass'
       ),
-    /credit_card/
+    /num_of_ticket/
   );
   assert.throws(
     () =>
@@ -110,7 +97,6 @@ test('normalizeConfig requires complete card data for checkout', () => {
           num_of_ticket: 2,
           auto_purchase: true,
           open_match_page: false,
-          credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
         },
         'C:/work/anypass'
       ),
@@ -122,7 +108,6 @@ test('normalizeConfig requires complete card data for checkout', () => {
         {
           free_word: 'SOPHIA',
           auto_purchase: true,
-          credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
         },
         'C:/work/anypass'
       ),
