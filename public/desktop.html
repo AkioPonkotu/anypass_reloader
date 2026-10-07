@@ -25,6 +25,12 @@
           <div class="section-title"><b>01</b><div><h3>検索条件</h3><small>少なくとも1つ入力してください。</small></div></div>
           <label class="field"><span>キーワード</span><input name="free_word" type="text" placeholder="アーティスト名・ツアー名" /></label>
           <div class="field-grid">
+          <div class="option-heading"><span>AnyPASS の絞り込み</span><button id="refresh-search-options" type="button">候補を更新</button></div>
+          <div class="field-grid search-option-fields">
+            <label class="field"><span>アーティスト</span><select name="search_artist"><option value="">候補を取得中…</option></select></label>
+            <label class="field"><span>ツアー</span><select name="search_tour"><option value="">候補を取得中…</option></select></label>
+            <label class="field field-wide"><span>イベント</span><select name="search_event"><option value="">候補を取得中…</option></select></label>
+          </div>
             <label class="field"><span>希望枚数</span><input name="num_of_ticket" type="number" min="1" placeholder="2" /></label>
             <label class="field"><span>上限 / 枚</span><input name="max_price_per_ticket" type="number" min="1" placeholder="12,000" /></label>
             <label class="field"><span>公演日</span><input name="p_date" type="text" placeholder="2026/10/15" /></label>

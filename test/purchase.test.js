@@ -25,20 +25,23 @@ function createLocator({ visible, onClick }) {
   };
 }
 
-test('confirmPayment clicks the visible confirmation button', async () => {
+test('confirmPayment clicks the payment and purchase confirmation buttons', async () => {
   const calls = [];
-  const button = createLocator({ visible: true, onClick: () => calls.push('button') });
-  const link = createLocator({ visible: true, onClick: () => calls.push('link') });
+  const paymentConfirmation = createLocator({ visible: true, onClick: () => calls.push('payment') });
+  const purchaseConfirmation = createLocator({ visible: true, onClick: () => calls.push('purchase') });
+  const hidden = createLocator({ visible: false, onClick: () => {} });
   const page = {
     getByRole(role, options) {
-      assert.match(String(options.name), /確認/);
-      return role === 'button' ? button : link;
+      if (role !== 'button') return hidden;
+      if (options.name.test('確認')) return paymentConfirmation;
+      assert.match('購入を確定する', options.name);
+      return purchaseConfirmation;
     },
   };
 
   await confirmPayment(page);
 
-  assert.deepEqual(calls, ['button']);
+  assert.deepEqual(calls, ['payment', 'purchase']);
 });
 
 test('confirmPayment fails without a visible confirmation control', async () => {

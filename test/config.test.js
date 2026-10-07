@@ -30,6 +30,14 @@ test('normalizeConfig rejects an empty search condition and too-fast reloads', (
   );
 });
 
+test('normalizeConfig accepts AnyPASS dropdown selections as search conditions', () => {
+  const config = normalizeConfig({ search_artist: 'SOPHIA', search_event: 1003741, search_tour: 759 }, 'C:/work/anypass');
+
+  assert.equal(config.search_artist, 'SOPHIA');
+  assert.equal(config.search_event, '1003741');
+  assert.equal(config.search_tour, '759');
+});
+
 test('normalizeConfig normalizes inclusive date range boundaries', () => {
   const config = normalizeConfig(
     { p_date_from: '2026/10/01', p_date_to: '2026-10-31' },

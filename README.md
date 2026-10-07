@@ -21,7 +21,7 @@ Copy-Item config.example.json config.json
 ```
 
 `config.json` を編集して監視条件を設定します。少なくとも `free_word`、`p_date`、
-`p_date_from`、`p_date_to`、`num_of_ticket`、`max_price_per_ticket` のいずれか一つが必要です。条件なしで最初の出品を検出する事故を
+`search_artist`、`search_event`、`search_tour`、`p_date_from`、`p_date_to`、`num_of_ticket`、`max_price_per_ticket` のいずれか一つが必要です。条件なしで最初の出品を検出する事故を
 避けるため、空の条件では起動しません。
 
 ```json
@@ -34,12 +34,6 @@ Copy-Item config.example.json config.json
   "reload_time": 10,
   "open_match_page": true,
   "auto_purchase": false,
-  "credit_card": {
-    "number": "4111111111111111",
-    "expiration_month": "12",
-    "expiration_year": "2028",
-    "cvv": "123"
-  },
   "user_data_dir": ".anypass-profile",
   "screenshot_dir": "output/playwright"
 }
@@ -48,6 +42,9 @@ Copy-Item config.example.json config.json
 | 設定 | 内容 |
 | --- | --- |
 | `free_word` | サイトのフリーワード検索に入力する文字列。空欄可。 |
+| `search_artist` | AnyPASS のアーティスト選択値。デスクトップ GUI の「候補を更新」で実サイトから取得して選択できます。 |
+| `search_event` | AnyPASS のイベント選択値。デスクトップ GUI の候補から選択できます。 |
+| `search_tour` | AnyPASS のツアー選択値。デスクトップ GUI の候補から選択できます。 |
 | `p_date` | 一覧に表示される単一の公演日。空白・全角数字を無視して部分一致で照合。日付範囲とは併用不可。 |
 | `p_date_from` | 公演日の範囲の開始日（含む）。`YYYY/MM/DD` または `YYYY-MM-DD` 形式。単独指定も可。 |
 | `p_date_to` | 公演日の範囲の終了日（含む）。`YYYY/MM/DD` または `YYYY-MM-DD` 形式。単独指定も可。開始日と終了日の両方を指定する場合、開始日は終了日以前にする必要があります。`p_date` とは併用不可。 |
@@ -56,11 +53,8 @@ Copy-Item config.example.json config.json
 | `reload_time` | 未検出時の再検索間隔（秒）。最低 0.1 秒、既定 10 秒。 |
 | `open_match_page` | 一致時に詳細ページへ移動するか。`auto_purchase` が `true` の場合は `true` が必須。 |
 | `auto_purchase` | `true` の場合、検出したチケットの購入手続きを進め、決済情報を入力する。既定は `false`。 |
-| `credit_card.number` | カード番号（数字のみ。空白・ハイフンは設定しても除去される）。`auto_purchase: true` では必須。 |
-| `credit_card.expiration_month` / `credit_card.expiration_year` | 有効期限。月は `01`〜`12`、年は 2 桁または 4 桁。 |
-| `credit_card.cvv` | セキュリティコード（3 桁）。`auto_purchase: true` では必須。 |
 | `user_data_dir` | Cookie・ログイン状態を保存する Chromium プロファイルのパス。 |
-| `screenshot_dir` | 一致時に一覧を保存するディレクトリ。 |
+| `screenshot_dir` | 開発実行時に一致した一覧を保存するディレクトリ。配布パッケージでは使用しない。 |
 
 ## 実行
 
@@ -86,16 +80,18 @@ npm run make:win
 ```
 
 配布するファイルは `out\make\squirrel.windows\x64\AnyPASSWatcherSetup.exe` です。初回起動後、
-GUI で保存した `config.json`、ログイン状態、検出スクリーンショットはインストール先ではなく
-Windows のアプリ用データディレクトリに保存されます。アンインストール前に残したいデータが
-あれば、このフォルダーをバックアップしてください。
+GUI で保存した `config.json` とログイン状態はインストール先ではなく Windows のアプリ用データ
+ディレクトリに保存されます。配布パッケージでは検出スクリーンショットを保存しません。
 
 公開配布では、Windows の警告を避け、配布物の改ざん検出を可能にするため、Authenticode
 コード署名を CI で設定してください。証明書やパスワードはリポジトリへ追加しません。Squirrel
 の更新ファイルを公開する仕組みは未設定のため、現時点の更新は新しいインストーラーを配布する
 運用です。
 
-設定済みのカード情報はアプリを開いたときに入力欄へ読み戻されます。カード番号は下4桁以外をアスタリスクで表示します。旧版のメールアドレスとパスワードは、設定を保存し直すと削除されます。
+カード番号と有効期限は `config.json` には保存されません。デスクトップ画面で保存すると、Windows の
+現在のユーザーに紐づく暗号化領域に暗号文として保存され、画面には保存済みであることと下4桁だけを表示します。
+セキュリティコードは保存せず、自動購入を開始する都度入力します。旧版の `credit_card`、メールアドレス、
+パスワードは、デスクトップ版で設定を開くと安全に移行・削除されます。
 
 別の設定ファイルを使う場合は、次のように指定します。
 
@@ -110,14 +106,16 @@ npm run gui -- --config config.json
 監視を停止して同じ再ログイン状態に戻します。再ログインが必要になった時と、3D セキュアを
 表示した時は通知音を鳴らし、最小化されている場合は復元してアプリ画面を前面に出します。
 
+検索条件には、フリーワードに加えて AnyPASS のアーティスト・イベント・ツアー候補を使えます。Monitor は起動時に右側の AnyPASS リセール一覧から候補を取得し、「候補を更新」で最新化できます。選択した候補は設定に保存され、次回の検索時には AnyPASS 側の該当ドロップダウンにも設定されます。
+
 停止は `Ctrl+C` です。プロファイル、設定ファイル、検出時のスクリーンショットは
 Git 管理から除外されています。
 
 ## 購入手続きの自動化
 
-右側の画面で AnyPASS にログインしてから、`config.json` にカード情報を設定し、`auto_purchase` を `true` にします。
-`config.json` は Git 管理から除外済みです。カード番号や CVV をログや
-スクリーンショットのファイル名に出力することはありません。
+右側の画面で AnyPASS にログインしてから、デスクトップ画面でカード番号と有効期限を保存し、
+`auto_purchase` を有効にします。セキュリティコードは自動購入を開始する都度入力してください。
+カード番号・有効期限・セキュリティコードをログ、`config.json`、スクリーンショットのファイル名へ出力しません。
 
 カード情報を入力後、「確認 / Confirmation」ボタンを自動で押して 3D セキュアを開始します。
 以後は GUI 内に表示中のブラウザで認証を利用者自身が完了してください。3D セキュアの認証操作・

@@ -3,6 +3,7 @@ const PAYMENT_MONTH_SELECTOR = '#ccExpirationMonth';
 const PAYMENT_YEAR_SELECTOR = '#ccExpirationYear_disp';
 const PAYMENT_CVV_SELECTOR = '#securityCode';
 const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
+const PURCHASE_CONFIRMATION_NAMES = /^(?:購入を?確定(?:する)?|購入する|注文を?確定(?:する)?|確定して購入|complete purchase|place order)$/i;
 const { extractTicketCount, isIndividualPurchaseUnavailable } = require('./tickets');
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
@@ -11,7 +12,8 @@ const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
 // 購入確定に相当する文言はここには含めず、詳細画面から決済入力画面までの導線だけを対象にする。
 const INITIAL_CHECKOUT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|購入(?:へ|に)(?:進む|進める)|購入する|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
 // 最初の詳細ページ以降は「購入する」のような確定に見える文言を自動クリックしない。
-// 決済代行画面では明示的に「確認」だけをクリックし、3D セキュアの認証自体は利用者が行う。
+// 決済代行画面では、カード情報確認後に表示される購入確定ボタンだけを押して
+// 3D セキュアの開始画面まで進める。3D セキュアの認証入力・完了操作は利用者が行う。
 const CONTINUE_TO_PAYMENT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
 const CHECKOUT_CONTROL_WAIT_MS = 15_000;
 
@@ -151,6 +153,12 @@ async function confirmPayment(page) {
       page.getByRole('link', { name: PAYMENT_CONFIRMATION_NAMES }),
     ],
     '決済確認ボタン'
+  );
+
+  await clickFirstVisible(
+    checkoutControls(page, PURCHASE_CONFIRMATION_NAMES),
+    '購入確定ボタン',
+    CHECKOUT_CONTROL_WAIT_MS
   );
 }
 
