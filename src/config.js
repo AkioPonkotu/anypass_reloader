@@ -34,10 +34,11 @@ function normalizeConfig(config, configDirectory) {
   const freeWord = stringValue(config.free_word);
   const date = stringValue(config.p_date);
   const ticketCount = parseTicketCount(config.num_of_ticket);
+  const budget = parseBudget(config.max_price_per_ticket ?? config.budget);
 
-  if (!freeWord && !date && !ticketCount) {
+  if (!freeWord && !date && !ticketCount && !budget) {
     throw new Error(
-      'free_word、p_date、num_of_ticket のいずれかを設定してください。' +
+      'free_word、p_date、num_of_ticket、max_price_per_ticket のいずれかを設定してください。' +
         ' 条件なしで最初のチケットを検出しないための制約です。'
     );
   }
@@ -48,6 +49,7 @@ function normalizeConfig(config, configDirectory) {
     freeWord,
     date,
     ticketCount,
+    budget,
     reloadSeconds,
     headless: config.headless !== false,
     openMatchPage: config.open_match_page !== false,
@@ -65,6 +67,15 @@ function parseTicketCount(value) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed < 1) {
     throw new Error('num_of_ticket は 1 以上の整数にしてください。');
+  }
+  return parsed;
+}
+
+function parseBudget(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error('max_price_per_ticket は 1 円以上の整数にしてください。');
   }
   return parsed;
 }
@@ -88,5 +99,6 @@ module.exports = {
   DEFAULT_RELOAD_SECONDS,
   MINIMUM_RELOAD_SECONDS,
   normalizeConfig,
+  parseBudget,
   readConfig,
 };

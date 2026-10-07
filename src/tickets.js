@@ -12,6 +12,11 @@ function extractTicketCount(text) {
   return match ? Number(match[1]) : null;
 }
 
+function extractTicketPrice(text) {
+  const match = normalize(text).match(/[¥￥]([0-9][0-9,]*)\/1枚/u);
+  return match ? Number(match[1].replaceAll(',', '')) : null;
+}
+
 function findMatchingTicket(tickets, criteria) {
   const expectedDate = normalize(criteria.date);
 
@@ -20,9 +25,12 @@ function findMatchingTicket(tickets, criteria) {
     const dateMatches = !expectedDate || text.includes(expectedDate);
     const countMatches =
       !criteria.ticketCount || extractTicketCount(text) === criteria.ticketCount;
+    const price = extractTicketPrice(text);
+    const budgetMatches =
+      !criteria.budget || (price !== null && price <= criteria.budget);
 
-    return dateMatches && countMatches;
+    return dateMatches && countMatches && budgetMatches;
   });
 }
 
-module.exports = { extractTicketCount, findMatchingTicket, normalize };
+module.exports = { extractTicketCount, extractTicketPrice, findMatchingTicket, normalize };

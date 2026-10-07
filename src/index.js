@@ -50,6 +50,18 @@ function ticketCountLabel(ticketCount) {
   return ticketCount >= 3 ? '3枚以上' : `${ticketCount}枚`;
 }
 
+function serverPriceMaxForBudget(optionValues, budget) {
+  if (!budget) return null;
+
+  const availableValues = optionValues
+    .map(Number)
+    .filter((value) => Number.isInteger(value) && value > 0)
+    .sort((left, right) => left - right);
+  const matchingValue = availableValues.find((value) => value >= budget);
+
+  return matchingValue || availableValues.at(-1) || null;
+}
+
 async function applySearchFilter(page, config) {
   const form = page.locator(FORM_SELECTOR);
   await form.waitFor({ state: 'visible', timeout: 15_000 });
@@ -63,6 +75,20 @@ async function applySearchFilter(page, config) {
     await form
       .locator('select[name="ticket_count"]')
       .selectOption({ label: ticketCount }, { force: true });
+  }
+
+  if (config.budget) {
+    const priceMax = form.locator('select[name="price_max"]');
+    const optionValues = await priceMax.locator('option').evaluateAll((options) =>
+      options.map((option) => option.value)
+    );
+    const serverPriceMax = serverPriceMaxForBudget(optionValues, config.budget);
+    if (!serverPriceMax) {
+      throw new Error('サイトの金額上限フィルターの選択肢を取得できませんでした。');
+    }
+    // サイトの上限は段階値のみのため、予算以上で最も近い値を指定する。
+    // 厳密な予算判定は findMatchingTicket() で 1 枚当たり価格に対して行う。
+    await priceMax.selectOption({ value: String(serverPriceMax) }, { force: true });
   }
 
   const excludeInProgress = form.locator(
@@ -181,5 +207,6 @@ module.exports = {
   collectTickets,
   parseArguments,
   searchOnce,
+  serverPriceMaxForBudget,
   ticketCountLabel,
 };
