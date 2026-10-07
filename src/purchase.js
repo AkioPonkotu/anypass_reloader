@@ -6,24 +6,48 @@ const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
 const { extractTicketCount, isIndividualPurchaseUnavailable } = require('./tickets');
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
-const INITIAL_CHECKOUT_NAMES = /購入手続きへ|購入する|お支払いへ|支払いへ|checkout/i;
+// AnyPASS の画面文言は「購入手続きへ」だけでなく、「購入手続きに進む」や
+// 「お申込み手続きを進める」のようにイベントごとに変わることがある。
+// 購入確定に相当する文言はここには含めず、詳細画面から決済入力画面までの導線だけを対象にする。
+const INITIAL_CHECKOUT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|購入(?:へ|に)(?:進む|進める)|購入する|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
 // 最初の詳細ページ以降は「購入する」のような確定に見える文言を自動クリックしない。
 // 決済代行画面では明示的に「確認」だけをクリックし、3D セキュアの認証自体は利用者が行う。
-const CONTINUE_TO_PAYMENT_NAMES = /購入手続きへ|お支払いへ|支払いへ|checkout/i;
+const CONTINUE_TO_PAYMENT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
+const CHECKOUT_CONTROL_WAIT_MS = 15_000;
 
-async function firstVisibleLocator(locators) {
-  for (const locator of locators) {
-    if ((await locator.count()) > 0 && (await locator.first().isVisible().catch(() => false))) {
-      return locator.first();
+async function firstVisibleLocator(locators, timeout = 0) {
+  const deadline = Date.now() + timeout;
+
+  do {
+    for (const locator of locators) {
+      if ((await locator.count()) > 0 && (await locator.first().isVisible().catch(() => false))) {
+        return locator.first();
+      }
     }
-  }
+
+    if (Date.now() >= deadline) break;
+    await new Promise((resolve) => setTimeout(resolve, Math.min(100, deadline - Date.now())));
+  } while (true);
+
   return null;
 }
 
-async function clickFirstVisible(locators, description) {
-  const locator = await firstVisibleLocator(locators);
+async function clickFirstVisible(locators, description, timeout) {
+  const locator = await firstVisibleLocator(locators, timeout);
   if (!locator) throw new Error(`${description}が見つかりませんでした。サイトの画面を確認してください。`);
   await locator.click({ noWaitAfter: true });
+}
+
+function checkoutControls(page, names) {
+  const controls = [
+    page.getByRole('button', { name: names }),
+    page.getByRole('link', { name: names }),
+  ];
+
+  // SPA のマークアップ変更で button/link のアクセシブル名が取れない場合も、画面に
+  // 表示されている導線を押せるようテキストベースの候補を補助的に使う。
+  if (typeof page.getByText === 'function') controls.push(page.getByText(names));
+  return controls;
 }
 
 function loginInputs(page) {
@@ -103,11 +127,9 @@ async function advanceToPaymentEntry(page) {
   for (let step = 0; step < 3; step += 1) {
     if (await page.locator(PAYMENT_NUMBER_SELECTOR).isVisible().catch(() => false)) return;
     await clickFirstVisible(
-      [
-        page.getByRole('button', { name: step === 0 ? INITIAL_CHECKOUT_NAMES : CONTINUE_TO_PAYMENT_NAMES }),
-        page.getByRole('link', { name: step === 0 ? INITIAL_CHECKOUT_NAMES : CONTINUE_TO_PAYMENT_NAMES }),
-      ],
-      '購入手続きボタン'
+      checkoutControls(page, step === 0 ? INITIAL_CHECKOUT_NAMES : CONTINUE_TO_PAYMENT_NAMES),
+      '購入手続きボタン',
+      CHECKOUT_CONTROL_WAIT_MS
     );
     await page.waitForTimeout(500);
   }

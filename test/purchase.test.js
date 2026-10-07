@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  advanceToPaymentEntry,
   confirmPayment,
   isLoginRequired,
   openLoginPageIfNeeded,
@@ -49,6 +50,44 @@ test('confirmPayment fails without a visible confirmation control', async () => 
   };
 
   await assert.rejects(confirmPayment(page), /決済確認ボタンが見つかりません/);
+});
+
+test('advanceToPaymentEntry waits for and clicks the updated checkout label', async () => {
+  const calls = [];
+  let paymentVisible = false;
+  const hidden = createLocator({ visible: false, onClick: () => {} });
+  const checkout = createLocator({
+    visible: true,
+    onClick: () => {
+      calls.push('checkout');
+      paymentVisible = true;
+    },
+  });
+  const payment = {
+    async isVisible() {
+      return paymentVisible;
+    },
+    async waitFor() {
+      assert.equal(paymentVisible, true);
+    },
+  };
+  const page = {
+    locator(selector) {
+      return selector === '#ccNumber_disp' ? payment : hidden;
+    },
+    getByRole(role, options) {
+      if (role === 'button') {
+        assert.match('購入手続きに進む', options.name);
+        return checkout;
+      }
+      return hidden;
+    },
+    async waitForTimeout() {},
+  };
+
+  await advanceToPaymentEntry(page);
+
+  assert.deepEqual(calls, ['checkout']);
 });
 
 function createLoginPage({ emailVisible = false, loginVisible = false, onLoginClick = () => {} } = {}) {
