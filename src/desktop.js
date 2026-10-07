@@ -3,6 +3,7 @@ const path = require('node:path');
 const electron = require('electron');
 const { app, BaseWindow, WebContentsView, ipcMain } = electron;
 const { chromium } = require('playwright');
+const { isElectronMainProcess } = require('./electron-main');
 const { normalizeConfig } = require('./config');
 const { run } = require('./index');
 const { mergeConfig, sanitizeConfig } = require('./gui');
@@ -68,6 +69,7 @@ function createDesktopController({ configPath, createWindow = createViews }) {
   const absoluteConfigPath = path.resolve(configPath);
   const state = { status: 'idle', logs: [], controller: null, error: null, automationBrowser: null };
   let views;
+  let uiWebContents;
 
   const addLog = (message) => {
     state.logs = [...state.logs, { time: timestamp(), message }].slice(-LOG_LIMIT);
@@ -156,7 +158,7 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     if (ipcRegistered) return;
     ipcRegistered = true;
     const handle = (channel, listener) => ipcMain.handle(channel, (event, ...args) => {
-      if (event.sender !== views.uiView.webContents) {
+      if (event.sender !== uiWebContents) {
         throw new Error('許可されていない画面からの操作です。');
       }
       return listener(...args);
@@ -180,7 +182,18 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     state,
     addLog,
     snapshot,
-    create: async () => { views = await createWindow(); registerIpc(); return views; },
+    create: async () => {
+      views = await createWindow({
+        onUiViewCreated: (uiView) => {
+          uiWebContents = uiView.webContents;
+          registerIpc();
+        },
+      });
+      // テスト用の createWindow など、コールバックを実装しない生成関数にも対応する。
+      uiWebContents ||= views.uiView.webContents;
+      registerIpc();
+      return views;
+    },
     start,
     stop,
     saveConfig,
@@ -195,7 +208,7 @@ function isAllowedRemoteUrl(value) {
   }
 }
 
-async function createViews() {
+async function createViews({ onUiViewCreated } = {}) {
   const window = new BaseWindow({
     width: 1440,
     height: 900,
@@ -250,6 +263,8 @@ async function createViews() {
       }
       : { action: 'deny' }
   ));
+  // desktop-app.js の初期化時 IPC より先にハンドラを登録する。
+  onUiViewCreated?.(uiView);
   await uiView.webContents.loadFile(path.join(__dirname, '..', 'public', 'desktop.html'));
   await browserView.webContents.loadURL('about:blank');
   return { window, uiView, browserView };
@@ -288,7 +303,9 @@ async function main() {
   app.on('window-all-closed', () => app.quit());
 }
 
-if (require.main === module) {
+// Electron CLI は CommonJS のエントリポイントを dynamic import するため、
+// require.main === module では起動を判定できない。
+if (isElectronMainProcess()) {
   // Squirrel はインストール・更新・削除時にアプリを一度起動する。通常の GUI を
   // 開かないよう、Forge の推奨ランタイム処理を main process の最初に行う。
   if (process.platform === 'win32' && require('electron-squirrel-startup')) {
