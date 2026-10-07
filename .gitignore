@@ -1,5 +1,6 @@
 node_modules/
 output/
+out/
 .anypass-profile/
 config.json
 .playwright-cli/

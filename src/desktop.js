@@ -11,12 +11,17 @@ const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
 const DEBUG_PORT = 9412;
 const LOG_LIMIT = 200;
 
-// connectOverCDP() で Electron 内の WebContents を Playwright の Page として
-// 扱うため、app が ready になる前に CDP を有効にする必要がある。
-if (app?.commandLine) app.commandLine.appendSwitch('remote-debugging-port', String(DEBUG_PORT));
+function defaultConfigPath(electronApp = app) {
+  // インストール先は通常ユーザーが書き込めない。配布版は Windows の userData
+  // (通常 %APPDATA% 配下) に設定・プロファイル・スクリーンショットを保存する。
+  if (electronApp?.isPackaged && typeof electronApp.getPath === 'function') {
+    return path.join(electronApp.getPath('userData'), 'config.json');
+  }
+  return 'config.json';
+}
 
-function parseDesktopArguments(argv) {
-  const options = { configPath: 'config.json' };
+function parseDesktopArguments(argv, defaultPath = defaultConfigPath()) {
+  const options = { configPath: defaultPath };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--config') {
@@ -146,16 +151,25 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     return sanitizeConfig(merged);
   }
 
+  let ipcRegistered = false;
   function registerIpc() {
-    ipcMain.handle('watcher:get-state', () => snapshot());
-    ipcMain.handle('watcher:get-config', async () => sanitizeConfig(await readJson(absoluteConfigPath)));
-    ipcMain.handle('watcher:save-config', (_, patch) => saveConfig(patch));
-    ipcMain.handle('watcher:start', () => {
+    if (ipcRegistered) return;
+    ipcRegistered = true;
+    const handle = (channel, listener) => ipcMain.handle(channel, (event, ...args) => {
+      if (event.sender !== views.uiView.webContents) {
+        throw new Error('許可されていない画面からの操作です。');
+      }
+      return listener(...args);
+    });
+    handle('watcher:get-state', () => snapshot());
+    handle('watcher:get-config', async () => sanitizeConfig(await readJson(absoluteConfigPath)));
+    handle('watcher:save-config', (patch) => saveConfig(patch));
+    handle('watcher:start', () => {
       void start();
       return snapshot();
     });
-    ipcMain.handle('watcher:stop', () => stop());
-    ipcMain.handle('watcher:show-resale-list', async () => {
+    handle('watcher:stop', () => stop());
+    handle('watcher:show-resale-list', async () => {
       if (state.status === 'running' || state.status === 'stopping') throw new Error('監視中はブラウザを移動できません。');
       await views.browserView.webContents.loadURL(RESALE_LIST_URL);
       return snapshot();
@@ -171,6 +185,14 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     stop,
     saveConfig,
   };
+}
+
+function isAllowedRemoteUrl(value) {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 async function createViews() {
@@ -201,6 +223,14 @@ async function createViews() {
   window.contentView.addChildView(uiView);
   window.contentView.addChildView(browserView);
 
+  // ローカル UI と外部サイトを分離し、外部サイトには HTTPS 以外への遷移・
+  // 権限要求・Node API を許可しない。3D セキュアの HTTPS ポップアップは維持する。
+  uiView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  browserView.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  browserView.webContents.on('will-navigate', (event, targetUrl) => {
+    if (!isAllowedRemoteUrl(targetUrl)) event.preventDefault();
+  });
+
   const layout = () => {
     const { width, height } = window.getContentBounds();
     const sidebarWidth = Math.min(460, Math.max(380, Math.round(width * 0.31)));
@@ -210,10 +240,16 @@ async function createViews() {
   window.on('resize', layout);
   layout();
 
-  browserView.webContents.setWindowOpenHandler(() => ({
-    action: 'allow',
-    overrideBrowserWindowOptions: { webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true } },
-  }));
+  browserView.webContents.setWindowOpenHandler(({ url }) => (
+    isAllowedRemoteUrl(url)
+      ? {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+        },
+      }
+      : { action: 'deny' }
+  ));
   await uiView.webContents.loadFile(path.join(__dirname, '..', 'public', 'desktop.html'));
   await browserView.webContents.loadURL('about:blank');
   return { window, uiView, browserView };
@@ -226,8 +262,25 @@ async function main() {
     app.quit();
     return;
   }
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
+  app.setAppUserModelId('com.github.akioponkotu.anypasswatcher');
+  // connectOverCDP() で Electron 内の WebContents を Playwright の Page として
+  // 扱うため、app が ready になる前に CDP を有効にする必要がある。
+  app.commandLine.appendSwitch('remote-debugging-port', String(DEBUG_PORT));
+
+  let desktop;
+  app.on('second-instance', () => {
+    const window = BaseWindow.getAllWindows()[0];
+    if (window) {
+      if (window.isMinimized()) window.restore();
+      window.focus();
+    }
+  });
   await app.whenReady();
-  const desktop = createDesktopController(options);
+  desktop = createDesktopController(options);
   await desktop.create();
   app.on('activate', async () => {
     if (BaseWindow.getAllWindows().length === 0) await desktop.create();
@@ -236,10 +289,16 @@ async function main() {
 }
 
 if (require.main === module) {
-  main().catch((error) => {
-    console.error(`GUI を起動できません: ${error.message}`);
+  // Squirrel はインストール・更新・削除時にアプリを一度起動する。通常の GUI を
+  // 開かないよう、Forge の推奨ランタイム処理を main process の最初に行う。
+  if (process.platform === 'win32' && require('electron-squirrel-startup')) {
     app.quit();
-  });
+  } else {
+    main().catch((error) => {
+      console.error(`GUI を起動できません: ${error.message}`);
+      app.quit();
+    });
+  }
 }
 
-module.exports = { createDesktopController, parseDesktopArguments };
+module.exports = { createDesktopController, defaultConfigPath, parseDesktopArguments };

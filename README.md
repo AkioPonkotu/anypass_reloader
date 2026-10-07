@@ -10,7 +10,7 @@ AnyPASS のネイティブ WebView を内包し、検索・ログイン・一致
 
 ## 必要環境
 
-- Node.js 20 以上
+- Node.js 22.13 以上（開発・Windows パッケージ作成時）
 - GUI は Electron を実行できる環境
 - CLI も使う場合は Playwright 用 Chromium
 
@@ -88,6 +88,26 @@ AnyPASS の画面が表示されます。停止後も表示中のページは閉
 ```powershell
 npm run gui
 ```
+
+### Windows インストーラーを作成する
+
+Windows 64 bit 向けの署名なし Squirrel インストーラーを作成します。Windows 上で依存関係を
+インストールしてから実行してください。
+
+```powershell
+npm ci
+npm run make:win
+```
+
+配布するファイルは `out\make\squirrel.windows\x64\AnyPASSWatcherSetup.exe` です。初回起動後、
+GUI で保存した `config.json`、ログイン状態、検出スクリーンショットはインストール先ではなく
+Windows のアプリ用データディレクトリに保存されます。アンインストール前に残したいデータが
+あれば、このフォルダーをバックアップしてください。
+
+公開配布では、Windows の警告を避け、配布物の改ざん検出を可能にするため、Authenticode
+コード署名を CI で設定してください。証明書やパスワードはリポジトリへ追加しません。Squirrel
+の更新ファイルを公開する仕組みは未設定のため、現時点の更新は新しいインストーラーを配布する
+運用です。
 
 設定済みのパスワード・カード情報は画面に読み戻さないため、変更が必要な場合だけ入力してください。
 

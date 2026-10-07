@@ -2,6 +2,8 @@
   "name": "anypass-reloader",
   "version": "2.0.0",
   "private": true,
+  "productName": "AnyPASS Watcher",
+  "author": "AnyPASS Watcher contributors",
   "description": "AnyPASS resale-list watcher with an embedded Electron browser",
   "main": "src/desktop.js",
   "scripts": {
@@ -9,15 +11,21 @@
     "gui": "electron src/desktop.js",
     "web-gui": "node src/gui.js",
     "setup-browser": "playwright install chromium",
-    "test": "node --test"
+    "test": "node --test",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "make:win": "electron-forge make --platform=win32 --arch=x64"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13"
   },
   "dependencies": {
+    "electron-squirrel-startup": "^1.0.1",
     "playwright": "^1.58.2"
   },
   "devDependencies": {
-    "electron": "^40.0.0"
+    "@electron-forge/cli": "^8.0.1",
+    "@electron-forge/maker-squirrel": "^8.0.1",
+    "electron": "^44.6.0"
   }
 }
