@@ -7,7 +7,7 @@
   "description": "AnyPASS resale-list watcher with an embedded Electron browser",
   "main": "src/desktop.js",
   "scripts": {
-    "gui": "electron src/desktop.js",
+    "gui": "chcp 65001 > nul && electron src/desktop.js",
     "test": "node --test",
     "package": "electron-forge package",
     "make": "electron-forge make",
