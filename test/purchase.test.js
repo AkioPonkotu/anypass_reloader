@@ -166,6 +166,51 @@ test('advanceToPaymentEntry prioritizes the purchase confirmation card-entry con
   assert.deepEqual(calls, ['purchase_btn']);
 });
 
+test('advanceToPaymentEntry finds the card-entry control after the initial checkout button', async () => {
+  const calls = [];
+  let step = 0;
+  let paymentVisible = false;
+  const hidden = createLocator({ visible: false, onClick: () => {} });
+  const initialCheckout = createLocator({
+    visible: true,
+    onClick: () => {
+      calls.push('initial');
+      step = 1;
+    },
+  });
+  const cardEntry = createLocator({
+    visible: true,
+    onClick: () => {
+      calls.push('card-entry');
+      paymentVisible = true;
+    },
+  });
+  const payment = {
+    async isVisible() {
+      return paymentVisible;
+    },
+    async waitFor() {
+      assert.equal(paymentVisible, true);
+    },
+  };
+  const page = {
+    locator(selector) {
+      if (selector === '#ccNumber_disp') return payment;
+      if (selector === '#purchase_btn') return step === 1 ? cardEntry : hidden;
+      return hidden;
+    },
+    getByRole(role, options) {
+      if (role === 'button' && step === 0 && options.name.test('購入手続きへ')) return initialCheckout;
+      return hidden;
+    },
+    async waitForTimeout() {},
+  };
+
+  await advanceToPaymentEntry(page);
+
+  assert.deepEqual(calls, ['initial', 'card-entry']);
+});
+
 test('agreeToPurchaseTerms checks every unchecked purchase agreement', async () => {
   const checks = [false, true];
   const calls = [];

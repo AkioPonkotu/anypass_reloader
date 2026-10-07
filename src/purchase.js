@@ -14,7 +14,7 @@ const INITIAL_CHECKOUT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進め�
 // 最初の詳細ページ以降は「購入する」のような確定に見える文言を自動クリックしない。
 // 決済代行画面では、カード情報確認後に表示される購入確定ボタンだけを押して
 // 3D セキュアの開始画面まで進める。3D セキュアの認証入力・完了操作は利用者が行う。
-const CONTINUE_TO_PAYMENT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
+const CONTINUE_TO_PAYMENT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|クレジットカード情報入力(?:へ|に)?(?:進む|する)?|checkout/i;
 // 詳細画面のフォーム送信後、AnyPASS 側で購入確認ページの生成に十数秒かかる
 // 場合がある。カード情報入力画面への遷移途中で探索を打ち切らないようにする。
 const CHECKOUT_CONTROL_WAIT_MS = 30_000;
@@ -50,6 +50,11 @@ async function firstVisibleLocator(locators, timeout = 0) {
 async function clickFirstVisible(locators, description, timeout) {
   const locator = await firstVisibleLocator(locators, timeout);
   if (!locator) throw new Error(`${description}が見つかりませんでした。サイトの画面を確認してください。`);
+  // click() 自体も自動スクロールするが、埋め込みブラウザでは画面下部のボタンが
+  // 描画待ちになることがあるため、先にスクロール可能なら明示的に表示領域へ寄せる。
+  if (typeof locator.scrollIntoViewIfNeeded === 'function') {
+    await locator.scrollIntoViewIfNeeded().catch(() => {});
+  }
   await locator.click({ noWaitAfter: true });
 }
 
@@ -57,8 +62,12 @@ function checkoutControls(page, names) {
   const controls = [];
 
   // 購入確認ページではカード入力へ進む submit が #purchase_btn で提供される。
-  // role/name の解釈や表示文言の揺れより先に、サイト固有の確実な導線を確認する。
-  if (names === INITIAL_CHECKOUT_NAMES) controls.push(page.locator('#purchase_btn'));
+  // 詳細画面からの1段目だけでなく、確認画面に遷移した後の2段目でも必要になる。
+  // ただし決済確定段階では対象に含めない。role/name の解釈や表示文言の揺れより先に、
+  // カード入力に進む場合だけサイト固有の確実な導線を確認する。
+  if (names === INITIAL_CHECKOUT_NAMES || names === CONTINUE_TO_PAYMENT_NAMES) {
+    controls.push(page.locator('#purchase_btn'));
+  }
 
   controls.push(
     page.getByRole('button', { name: names }),
