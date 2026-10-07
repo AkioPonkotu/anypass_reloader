@@ -54,7 +54,6 @@ function normalizeConfig(config, configDirectory) {
 
   const reloadSeconds = parseReloadSeconds(config.reload_time);
   const autoPurchase = parseBoolean(config.auto_purchase, 'auto_purchase', false);
-  const auth = parseAuth(config.auth ?? config.account, autoPurchase);
   const creditCard = parseCreditCard(config.credit_card, autoPurchase);
   if (autoPurchase && !ticketCount) {
     throw new Error('auto_purchase を有効にするには num_of_ticket を指定してください。');
@@ -72,7 +71,6 @@ function normalizeConfig(config, configDirectory) {
     budget,
     reloadSeconds,
     autoPurchase,
-    auth,
     creditCard,
     headless: config.headless !== false,
     openMatchPage: config.open_match_page !== false,
@@ -87,25 +85,6 @@ function parseBoolean(value, fieldName, defaultValue) {
     throw new Error(`${fieldName} は true または false で指定してください。`);
   }
   return value;
-}
-
-function parseAuth(value, required) {
-  if (value === undefined || value === null) {
-    if (required) throw new Error('auto_purchase を有効にするには auth.email と auth.password が必要です。');
-    return null;
-  }
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('auth は email と password を含むオブジェクトで指定してください。');
-  }
-
-  const email = stringValue(value.email);
-  // パスワードの前後空白も値として扱うため、stringValue() は使わない。
-  const password = value.password === undefined || value.password === null ? '' : String(value.password);
-  if (!email || !password) {
-    if (required) throw new Error('auto_purchase を有効にするには auth.email と auth.password が必要です。');
-    return null;
-  }
-  return { email, password };
 }
 
 function parseCreditCard(value, required) {
@@ -214,7 +193,6 @@ module.exports = {
   DEFAULT_RELOAD_SECONDS,
   MINIMUM_RELOAD_SECONDS,
   normalizeConfig,
-  parseAuth,
   parseCreditCard,
   parseDateBoundary,
   parseBudget,

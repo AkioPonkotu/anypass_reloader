@@ -5,7 +5,6 @@ const PAYMENT_CVV_SELECTOR = '#securityCode';
 const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
-const LOGIN_SUBMIT_NAMES = /ログイン|sign in|log in|次へ|continue/i;
 const INITIAL_CHECKOUT_NAMES = /購入手続きへ|購入する|お支払いへ|支払いへ|checkout/i;
 // 最初の詳細ページ以降は「購入する」のような確定に見える文言を自動クリックしない。
 // 決済代行画面では明示的に「確認」だけをクリックし、3D セキュアの認証自体は利用者が行う。
@@ -54,47 +53,6 @@ async function openLoginPageIfNeeded(page) {
   if (!loginLink) return false;
   await loginLink.click({ noWaitAfter: true });
   return true;
-}
-
-async function loginIfNeeded(page, auth) {
-  if (!auth) return;
-
-  const emailInput = () => firstVisibleLocator(loginInputs(page));
-  let email = await emailInput();
-
-  if (!email) {
-    const loginLink = await firstVisibleLocator(loginLinks(page));
-    if (!loginLink) return; // 保存済みのログイン状態である可能性がある。
-    await loginLink.click({ noWaitAfter: true });
-    await page
-      .locator('input[type="email"], input[name*="mail" i], input[id*="mail" i]')
-      .first()
-      .waitFor({ state: 'visible', timeout: 15_000 });
-    email = await emailInput();
-  }
-
-  if (!email) {
-    throw new Error('ログイン画面のメールアドレス入力欄を確認できませんでした。');
-  }
-  await email.fill(auth.email);
-
-  let password = await firstVisibleLocator([page.locator('input[type="password"]')]);
-  if (!password) {
-    await clickFirstVisible(
-      [page.getByRole('button', { name: LOGIN_SUBMIT_NAMES }), page.getByRole('link', { name: LOGIN_SUBMIT_NAMES })],
-      'ログインの続行ボタン'
-    );
-    await page.locator('input[type="password"]').first().waitFor({ state: 'visible', timeout: 15_000 });
-    password = await firstVisibleLocator([page.locator('input[type="password"]')]);
-  }
-  if (!password) throw new Error('ログイン画面のパスワード入力欄を確認できませんでした。');
-
-  await password.fill(auth.password);
-  await clickFirstVisible(
-    [page.getByRole('button', { name: LOGIN_SUBMIT_NAMES }), page.getByRole('link', { name: LOGIN_SUBMIT_NAMES })],
-    'ログインボタン'
-  );
-  await page.waitForLoadState('domcontentloaded').catch(() => {});
 }
 
 async function setPurchaseTicketCount(page, ticketCount) {
@@ -169,7 +127,6 @@ module.exports = {
   confirmPayment,
   fillPaymentEntry,
   isLoginRequired,
-  loginIfNeeded,
   openLoginPageIfNeeded,
   setPurchaseTicketCount,
 };

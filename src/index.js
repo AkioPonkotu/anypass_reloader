@@ -8,7 +8,6 @@ const {
   confirmPayment,
   fillPaymentEntry,
   isLoginRequired,
-  loginIfNeeded,
   setPurchaseTicketCount,
 } = require('./purchase');
 
@@ -23,11 +22,7 @@ function loginRequiredError() {
   return error;
 }
 
-async function ensureLoggedIn(page, auth, { manualLogin = false } = {}) {
-  if (!(await isLoginRequired(page))) return;
-  if (manualLogin) throw loginRequiredError();
-
-  await loginIfNeeded(page, auth);
+async function ensureLoggedIn(page) {
   if (await isLoginRequired(page)) throw loginRequiredError();
 }
 
@@ -140,9 +135,9 @@ async function collectTickets(page) {
   );
 }
 
-async function searchOnce(page, config, authentication = {}) {
+async function searchOnce(page, config) {
   await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-  await ensureLoggedIn(page, config.auth, authentication);
+  await ensureLoggedIn(page);
   await applySearchFilter(page, config);
 
   const tickets = await collectTickets(page);
@@ -210,10 +205,10 @@ async function run(options) {
 
   try {
     await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await ensureLoggedIn(page, config.auth, { manualLogin: options.manualLogin });
+    await ensureLoggedIn(page);
 
     do {
-      const { tickets, match } = await searchOnce(page, config, { manualLogin: options.manualLogin });
+      const { tickets, match } = await searchOnce(page, config);
 
       if (match) {
         writeLog(`条件に一致するチケットを検出しました: ${match.url}`);

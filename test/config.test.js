@@ -63,13 +63,12 @@ test('normalizeConfig rejects invalid or reversed date ranges', () => {
   );
 });
 
-test('normalizeConfig accepts checkout credentials and normalizes card fields', () => {
+test('normalizeConfig accepts checkout card data and normalizes card fields', () => {
   const config = normalizeConfig(
     {
       free_word: 'SOPHIA',
       num_of_ticket: 2,
       auto_purchase: true,
-      auth: { email: 'user@example.com', password: 'password with spaces ' },
       credit_card: {
         number: '4111-1111 1111-1111',
         expiration_month: '7',
@@ -81,7 +80,6 @@ test('normalizeConfig accepts checkout credentials and normalizes card fields', 
   );
 
   assert.equal(config.autoPurchase, true);
-  assert.deepEqual(config.auth, { email: 'user@example.com', password: 'password with spaces ' });
   assert.deepEqual(config.creditCard, {
     number: '4111111111111111',
     expirationMonth: '07',
@@ -90,11 +88,7 @@ test('normalizeConfig accepts checkout credentials and normalizes card fields', 
   });
 });
 
-test('normalizeConfig requires complete authentication and card data for checkout', () => {
-  assert.throws(
-    () => normalizeConfig({ free_word: 'SOPHIA', auto_purchase: true }, 'C:/work/anypass'),
-    /auth.email/
-  );
+test('normalizeConfig requires complete card data for checkout', () => {
   assert.throws(
     () =>
       normalizeConfig(
@@ -102,7 +96,6 @@ test('normalizeConfig requires complete authentication and card data for checkou
           free_word: 'SOPHIA',
           num_of_ticket: 2,
           auto_purchase: true,
-          auth: { email: 'user@example.com', password: 'password' },
           credit_card: { number: '123', expiration_month: '13', expiration_year: 'x', cvv: '1' },
         },
         'C:/work/anypass'
@@ -117,7 +110,6 @@ test('normalizeConfig requires complete authentication and card data for checkou
           num_of_ticket: 2,
           auto_purchase: true,
           open_match_page: false,
-          auth: { email: 'user@example.com', password: 'password' },
           credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
         },
         'C:/work/anypass'
@@ -130,7 +122,6 @@ test('normalizeConfig requires complete authentication and card data for checkou
         {
           free_word: 'SOPHIA',
           auto_purchase: true,
-          auth: { email: 'user@example.com', password: 'password' },
           credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
         },
         'C:/work/anypass'

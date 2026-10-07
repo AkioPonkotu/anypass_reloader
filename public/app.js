@@ -22,14 +22,12 @@ function setMessage(text, isError = false) { message.textContent = text; message
 function renderConfig(config) {
   for (const name of ['free_word', 'p_date', 'p_date_from', 'p_date_to', 'num_of_ticket', 'max_price_per_ticket', 'reload_time']) input(name).value = config[name] ?? '';
   for (const name of ['headless', 'open_match_page', 'auto_purchase']) input(name).checked = Boolean(config[name]);
-  input('auth.email').value = config.auth?.email ?? '';
 }
 function configFromForm() {
   return {
     free_word: value('free_word'), p_date: value('p_date'), p_date_from: value('p_date_from'), p_date_to: value('p_date_to'),
     num_of_ticket: value('num_of_ticket'), max_price_per_ticket: value('max_price_per_ticket'), reload_time: value('reload_time'),
     headless: input('headless').checked, open_match_page: input('open_match_page').checked, auto_purchase: input('auto_purchase').checked,
-    auth: { email: value('auth.email'), password: input('auth.password').value },
     credit_card: {
       number: input('credit_card.number').value, expiration_month: input('credit_card.expiration_month').value,
       expiration_year: input('credit_card.expiration_year').value, cvv: input('credit_card.cvv').value,

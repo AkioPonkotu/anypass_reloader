@@ -5,13 +5,8 @@
   "num_of_ticket": 2,
   "max_price_per_ticket": 12000,
   "reload_time": 10,
-  "headless": true,
   "open_match_page": true,
   "auto_purchase": false,
-  "auth": {
-    "email": "your-email@example.com",
-    "password": "your-password"
-  },
   "credit_card": {
     "number": "4111111111111111",
     "expiration_month": "12",

@@ -49,10 +49,8 @@
             <summary>高度な設定・自動購入</summary>
             <div class="advanced-content">
               <p class="notice">自動購入は決済情報の入力と決済画面での確認まで進めます。3Dセキュア認証は必ずご自身で行います。</p>
-              <label class="toggle-row purchase-toggle"><span><b>決済情報の入力まで自動化する</b><small>利用時はメールアドレス、パスワード、カード情報が必要です。</small></span><input name="auto_purchase" type="checkbox" role="switch" /></label>
+              <label class="toggle-row purchase-toggle"><span><b>決済情報の入力まで自動化する</b><small>カード情報が必要です。ログインは右側の画面で事前に行ってください。</small></span><input name="auto_purchase" type="checkbox" role="switch" /></label>
               <div class="form-grid advanced-grid">
-                <label class="field field-wide"><span>AnyPASS メールアドレス</span><input name="auth.email" type="email" placeholder="name@example.com" autocomplete="username" /></label>
-                <label class="field field-wide"><span>パスワード</span><input name="auth.password" type="password" placeholder="変更する場合のみ入力" autocomplete="new-password" /></label>
                 <label class="field field-wide"><span>カード番号</span><input name="credit_card.number" type="password" inputmode="numeric" placeholder="変更する場合のみ入力" autocomplete="cc-number" /></label>
                 <label class="field"><span>有効期限（月）</span><input name="credit_card.expiration_month" type="password" inputmode="numeric" placeholder="MM" autocomplete="cc-exp-month" /></label>
                 <label class="field"><span>有効期限（年）</span><input name="credit_card.expiration_year" type="password" inputmode="numeric" placeholder="YYYY" autocomplete="cc-exp-year" /></label>

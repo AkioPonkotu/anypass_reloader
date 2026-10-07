@@ -15,22 +15,23 @@ test('sanitizeConfig never returns saved secrets', () => {
     auth: { email: 'person@example.com', password: 'secret' },
     credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
   });
-  assert.deepEqual(config.auth, { email: 'person@example.com', has_password: true });
   assert.deepEqual(config.credit_card, { has_saved_card: true });
+  assert.equal(Object.hasOwn(config, 'auth'), false);
+  assert.equal(JSON.stringify(config).includes('person@example.com'), false);
   assert.equal(JSON.stringify(config).includes('4111111111111111'), false);
   assert.equal(JSON.stringify(config).includes('secret'), false);
 });
 
-test('mergeConfig keeps existing secrets when blank fields are submitted', () => {
+test('mergeConfig removes legacy authentication data and keeps card data when blank fields are submitted', () => {
   const merged = mergeConfig(
     {
       free_word: 'Old',
       auth: { email: 'old@example.com', password: 'saved-password' },
       credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
     },
-    { free_word: 'New', auth: { email: 'new@example.com', password: '' }, credit_card: { number: '', cvv: '' } }
+    { free_word: 'New', credit_card: { number: '', cvv: '' } }
   );
   assert.equal(merged.free_word, 'New');
-  assert.deepEqual(merged.auth, { email: 'new@example.com', password: 'saved-password' });
+  assert.equal(Object.hasOwn(merged, 'auth'), false);
   assert.equal(merged.credit_card.number, '4111111111111111');
 });

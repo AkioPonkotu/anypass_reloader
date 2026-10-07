@@ -6,7 +6,7 @@ test('run is exported for GUI controllers', () => {
   assert.equal(typeof run, 'function');
 });
 
-test('ensureLoggedIn asks for manual login without filling stored credentials', async () => {
+test('ensureLoggedIn requests manual login when authentication is required', async () => {
   const email = {
     async count() { return 1; },
     first() { return this; },
@@ -23,7 +23,7 @@ test('ensureLoggedIn asks for manual login without filling stored credentials', 
   };
 
   await assert.rejects(
-    ensureLoggedIn(page, { email: 'person@example.com', password: 'secret' }, { manualLogin: true }),
+    ensureLoggedIn(page),
     (error) => error.code === LOGIN_REQUIRED_CODE
   );
 });
