@@ -1,6 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { confirmPayment, isLoginRequired, openLoginPageIfNeeded } = require('../src/purchase');
+const {
+  confirmPayment,
+  isLoginRequired,
+  openLoginPageIfNeeded,
+  setPurchaseTicketCount,
+} = require('../src/purchase');
 
 function createLocator({ visible, onClick }) {
   return {
@@ -74,4 +79,43 @@ test('openLoginPageIfNeeded opens the login screen only from a login button', as
 
   assert.equal(await openLoginPageIfNeeded(createLoginPage({ emailVisible: true })), true);
   assert.deepEqual(calls, ['login']);
+});
+
+function createNoAmountSelectPage() {
+  return {
+    locator(selector) {
+      assert.equal(selector, 'select[name^="amount["]');
+      return {
+        async count() {
+          return 0;
+        },
+      };
+    },
+  };
+}
+
+test('setPurchaseTicketCount continues without a selector for a matching no-partial-purchase listing', async () => {
+  await assert.doesNotReject(
+    setPurchaseTicketCount(createNoAmountSelectPage(), 2, {
+      text: '一般指定席 × 2枚 バラ購入不可',
+    })
+  );
+});
+
+test('setPurchaseTicketCount rejects a no-partial-purchase listing with a different ticket count', async () => {
+  await assert.rejects(
+    setPurchaseTicketCount(createNoAmountSelectPage(), 2, {
+      text: '一般指定席 × 3枚 バラ購入不可',
+    }),
+    /出品枚数 3 枚が希望枚数 2 枚と一致しません/
+  );
+});
+
+test('setPurchaseTicketCount still rejects a missing selector for listings that allow partial purchase', async () => {
+  await assert.rejects(
+    setPurchaseTicketCount(createNoAmountSelectPage(), 2, {
+      text: '一般指定席 × 2枚',
+    }),
+    /購入枚数プルダウンを確認できませんでした/
+  );
 });

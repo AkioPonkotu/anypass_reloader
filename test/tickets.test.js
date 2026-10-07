@@ -5,6 +5,7 @@ const {
   extractTicketDate,
   extractTicketPrice,
   findMatchingTicket,
+  isIndividualPurchaseUnavailable,
   normalize,
 } = require('../src/tickets');
 
@@ -15,6 +16,12 @@ test('normalize removes whitespace and converts full-width numbers', () => {
 test('extractTicketCount reads the displayed ticket count rather than the price', () => {
   assert.equal(extractTicketCount('一般指定席 × 2枚 ¥11,000/1枚'), 2);
   assert.equal(extractTicketCount('一般指定席 ¥11,000/1枚'), null);
+});
+
+test('isIndividualPurchaseUnavailable recognizes both resale labels', () => {
+  assert.equal(isIndividualPurchaseUnavailable('一般指定席 × 2枚 バラ購入不可'), true);
+  assert.equal(isIndividualPurchaseUnavailable('一般指定席 × 2枚 バラ売り不可'), true);
+  assert.equal(isIndividualPurchaseUnavailable('一般指定席 × 2枚'), false);
 });
 
 test('extractTicketPrice reads the displayed per-ticket price', () => {

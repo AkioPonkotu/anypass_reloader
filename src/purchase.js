@@ -3,6 +3,7 @@ const PAYMENT_MONTH_SELECTOR = '#ccExpirationMonth';
 const PAYMENT_YEAR_SELECTOR = '#ccExpirationYear_disp';
 const PAYMENT_CVV_SELECTOR = '#securityCode';
 const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
+const { extractTicketCount, isIndividualPurchaseUnavailable } = require('./tickets');
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
 const INITIAL_CHECKOUT_NAMES = /購入手続きへ|購入する|お支払いへ|支払いへ|checkout/i;
@@ -55,7 +56,7 @@ async function openLoginPageIfNeeded(page) {
   return true;
 }
 
-async function setPurchaseTicketCount(page, ticketCount) {
+async function setPurchaseTicketCount(page, ticketCount, matchedTicket) {
   if (!ticketCount) {
     throw new Error('購入枚数が未設定です。num_of_ticket を指定してください。');
   }
@@ -63,6 +64,15 @@ async function setPurchaseTicketCount(page, ticketCount) {
   const amountSelects = page.locator('select[name^="amount["]');
   const selectCount = await amountSelects.count();
   if (selectCount === 0) {
+    const listingText = matchedTicket?.text;
+    if (isIndividualPurchaseUnavailable(listingText)) {
+      const listedTicketCount = extractTicketCount(listingText);
+      if (listedTicketCount === ticketCount) return;
+
+      throw new Error(
+        `バラ購入不可の出品枚数 ${listedTicketCount ?? '不明'} 枚が希望枚数 ${ticketCount} 枚と一致しません。`
+      );
+    }
     throw new Error('詳細画面の購入枚数プルダウンを確認できませんでした。');
   }
   if (selectCount > 1) {

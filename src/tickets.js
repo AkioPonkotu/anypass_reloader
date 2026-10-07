@@ -12,6 +12,10 @@ function extractTicketCount(text) {
   return match ? Number(match[1]) : null;
 }
 
+function isIndividualPurchaseUnavailable(text) {
+  return /バラ(?:購入|売り)不可/u.test(normalize(text));
+}
+
 function extractTicketPrice(text) {
   const match = normalize(text).match(/[¥￥]([0-9][0-9,]*)\/1枚/u);
   return match ? Number(match[1].replaceAll(',', '')) : null;
@@ -63,5 +67,6 @@ module.exports = {
   extractTicketDate,
   extractTicketPrice,
   findMatchingTicket,
+  isIndividualPurchaseUnavailable,
   normalize,
 };

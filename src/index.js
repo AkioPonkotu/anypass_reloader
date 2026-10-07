@@ -218,7 +218,7 @@ async function run(options) {
         if (config.openMatchPage) {
           await page.goto(match.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
           if (config.autoPurchase) {
-            await setPurchaseTicketCount(page, config.ticketCount);
+            await setPurchaseTicketCount(page, config.ticketCount, match);
             await advanceToPaymentEntry(page);
             await fillPaymentEntry(page, config.creditCard);
             await confirmPayment(page);
