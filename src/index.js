@@ -241,7 +241,7 @@ async function run(options) {
             await confirmPayment(page);
             await page.bringToFront();
             options.onThreeDSecure?.();
-            writeLog('決済確認ボタンを押しました。3Dセキュアは表示中のブラウザで利用者自身が完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
+            writeLog('購入確定ボタンを押し、3Dセキュアを開始しました。表示中のブラウザで認証を完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
             await waitForManualCheckout(context, () => stopRequested);
           } else {
             writeLog('該当チケットの詳細ページを開きました。購入・確定操作は行いません。');
