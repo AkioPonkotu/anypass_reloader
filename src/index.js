@@ -3,6 +3,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const { readConfig } = require('./config');
 const { findMatchingTicket } = require('./tickets');
+const { SEARCH_FILTERS, collectSearchOptions } = require('./search-options');
 const {
   advanceToPaymentEntry,
   confirmPayment,
@@ -86,6 +87,16 @@ async function applySearchFilter(page, config) {
 
   const freeWordInput = form.locator('#free_word_input_pc');
   await freeWordInput.fill(config.freeWord);
+
+  for (const { key, name, label } of SEARCH_FILTERS) {
+    if (!config[key]) continue;
+    const select = form.locator(`select[name="${name}"]`);
+    const values = await select.locator('option').evaluateAll((options) => options.map((option) => option.value));
+    if (!values.includes(config[key])) {
+      throw new Error(`保存した${label}は現在の AnyPASS の候補にありません。Monitor の「候補を更新」から選び直してください。`);
+    }
+    await select.selectOption({ value: config[key] }, { force: true });
+  }
 
   const ticketCount = ticketCountLabel(config.ticketCount);
   if (ticketCount) {
@@ -182,6 +193,9 @@ async function run(options) {
     config.headless = false;
     writeLog('auto_purchase が有効なため、決済画面以降を表示できるようブラウザを headed で起動します。');
   }
+  if (config.autoPurchase && typeof options.getCreditCard !== 'function') {
+    throw new Error('自動購入は、Windows デスクトップアプリで暗号化したカード情報を設定して実行してください。');
+  }
 
   // Electron の埋め込み WebContents を CDP 経由で渡せるようにしている。
   // context を呼び出し元が所有する場合は閉じないため、検索停止後も画面上で
@@ -212,15 +226,18 @@ async function run(options) {
 
       if (match) {
         writeLog(`条件に一致するチケットを検出しました: ${match.url}`);
-        const screenshotPath = await captureMatch(page, config);
-        writeLog(`一覧のスクリーンショットを保存しました: ${screenshotPath}`);
+        if (options.captureScreenshots !== false) {
+          const screenshotPath = await captureMatch(page, config);
+          writeLog(`一覧のスクリーンショットを保存しました: ${screenshotPath}`);
+        }
 
         if (config.openMatchPage) {
           await page.goto(match.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
           if (config.autoPurchase) {
             await setPurchaseTicketCount(page, config.ticketCount, match);
             await advanceToPaymentEntry(page);
-            await fillPaymentEntry(page, config.creditCard);
+            // 暗号化済みカードは、この入力直前にだけ呼び出し元で復号する。
+            await fillPaymentEntry(page, await options.getCreditCard());
             await confirmPayment(page);
             await page.bringToFront();
             options.onThreeDSecure?.();
@@ -271,6 +288,8 @@ module.exports = {
   ensureLoggedIn,
   LOGIN_REQUIRED_CODE,
   parseArguments,
+  applySearchFilter,
+  collectSearchOptions,
   searchOnce,
   serverPriceMaxForBudget,
   ticketCountLabel,

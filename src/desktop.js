@@ -1,12 +1,14 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const electron = require('electron');
-const { app, BaseWindow, WebContentsView, ipcMain } = electron;
+const { app, BaseWindow, WebContentsView, ipcMain, safeStorage } = electron;
 const { chromium } = require('playwright');
 const { isElectronMainProcess } = require('./electron-main');
 const { normalizeConfig } = require('./config');
 const { run, LOGIN_REQUIRED_CODE } = require('./index');
+const { collectSearchOptions } = require('./search-options');
 const { mergeConfig, sanitizeConfig } = require('./gui');
+const { parseCvv, readSecureCard, readSecureCardStatus, secureCardPath, writeSecureCard } = require('./secure-card');
 const { isLoginRequired, openLoginPageIfNeeded } = require('./purchase');
 
 const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
@@ -75,8 +77,15 @@ async function writeJson(filePath, value) {
   await fs.rename(temporaryPath, filePath);
 }
 
-function createDesktopController({ configPath, createWindow = createViews }) {
+function createDesktopController({
+  configPath,
+  createWindow = createViews,
+  secureStorage = safeStorage,
+  getUserDataPath = () => app.getPath('userData'),
+  isPackaged = app.isPackaged,
+}) {
   const absoluteConfigPath = path.resolve(configPath);
+  const paymentCardFilePath = secureCardPath(getUserDataPath());
   const state = {
     status: 'idle', authStatus: 'checking', logs: [], controller: null, error: null, automationBrowser: null,
   };
@@ -171,13 +180,18 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     }, 1_500);
   }
 
-  async function start() {
+  async function start({ cvv } = {}) {
     if (state.status === 'running' || state.status === 'stopping') throw new Error('監視はすでに実行中です。');
     if (!views) throw new Error('画面の準備が完了していません。');
     await refreshAuthentication();
     if (state.authStatus !== 'authenticated') {
       throw new Error('AnyPASS への再ログインが必要です。右側の画面でログインしてから開始してください。');
     }
+
+    const config = normalizeConfig(await readAndMigrateConfig(), path.dirname(absoluteConfigPath));
+    // CVV は保存しない。入力された今回の値だけを保持し、カード本体の復号は
+    // 実際に決済フォームへ入力する直前まで遅延させる。
+    const checkoutCvv = config.autoPurchase ? parseCvv(cvv) : null;
 
     state.status = 'running';
     state.error = null;
@@ -197,6 +211,14 @@ function createDesktopController({ configPath, createWindow = createViews }) {
         context: automation.context,
         page: automation.page,
         manualLogin: true,
+        captureScreenshots: !isPackaged,
+        getCreditCard: config.autoPurchase
+          ? async () => {
+            const card = await readSecureCard(paymentCardFilePath, secureStorage);
+            if (!card) throw new Error('暗号化されたカード情報がありません。カード番号と有効期限を保存してください。');
+            return { ...card, cvv: checkoutCvv };
+          }
+          : undefined,
         onThreeDSecure: () => notifyUser('3Dセキュアを表示しました。右側の画面で認証を完了してください。'),
       });
       if (state.controller.signal.aborted) {
@@ -234,11 +256,55 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     return snapshot();
   }
 
+  function hasPaymentCardInput(patch) {
+    const card = patch?.payment_card;
+    return card && typeof card === 'object' && !Array.isArray(card) && [
+      'number', 'expiration_month', 'expiration_year',
+    ].some((field) => String(card[field] ?? '').trim());
+  }
+
+  async function readAndMigrateConfig() {
+    const current = await readJson(absoluteConfigPath);
+    if (!Object.hasOwn(current, 'credit_card')) return current;
+    await writeSecureCard(paymentCardFilePath, current.credit_card, secureStorage);
+    const migrated = mergeConfig(current, {});
+    await writeJson(absoluteConfigPath, migrated);
+    return migrated;
+  }
+
+  async function publicConfig(config) {
+    return {
+      ...sanitizeConfig(config),
+      payment_card: await readSecureCardStatus(paymentCardFilePath, secureStorage),
+    };
+  }
+
   async function saveConfig(patch) {
-    const merged = mergeConfig(await readJson(absoluteConfigPath), patch);
+    const merged = mergeConfig(await readAndMigrateConfig(), patch);
     normalizeConfig(merged, path.dirname(absoluteConfigPath));
+    if (hasPaymentCardInput(patch)) {
+      await writeSecureCard(paymentCardFilePath, patch.payment_card, secureStorage);
+    }
     await writeJson(absoluteConfigPath, merged);
-    return sanitizeConfig(merged);
+    return publicConfig(merged);
+  }
+
+  async function refreshSearchOptions() {
+    if (state.status === 'running' || state.status === 'stopping') {
+      throw new Error('監視中は候補を更新できません。');
+    }
+    if (!views) throw new Error('画面の準備が完了していません。');
+
+    let automation;
+    try {
+      automation = await getEmbeddedPage(views.browserView);
+      await automation.page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      const options = await collectSearchOptions(automation.page, 'form#resale_sidebar_pc_search_form');
+      addLog(`AnyPASS の検索候補を更新しました（アーティスト ${options.search_artist.length} 件、イベント ${options.search_event.length} 件、ツアー ${options.search_tour.length} 件）。`);
+      return options;
+    } finally {
+      await automation?.browser.close().catch(() => {});
+    }
   }
 
   let ipcRegistered = false;
@@ -252,13 +318,18 @@ function createDesktopController({ configPath, createWindow = createViews }) {
       return listener(...args);
     });
     handle('watcher:get-state', () => snapshot());
-    handle('watcher:get-config', async () => sanitizeConfig(await readJson(absoluteConfigPath)));
+    handle('watcher:get-config', async () => publicConfig(await readAndMigrateConfig()));
     handle('watcher:save-config', (patch) => saveConfig(patch));
-    handle('watcher:start', () => {
-      void start();
+    handle('watcher:start', (payment) => {
+      void start(payment).catch((error) => {
+        state.status = 'error';
+        state.error = error.message || String(error);
+        addLog(`エラー: ${state.error}`);
+      });
       return snapshot();
     });
     handle('watcher:stop', () => stop());
+    handle('watcher:refresh-search-options', () => refreshSearchOptions());
     handle('watcher:show-resale-list', async () => {
       if (state.status === 'running' || state.status === 'stopping') throw new Error('監視中はブラウザを移動できません。');
       await views.browserView.webContents.loadURL(RESALE_LIST_URL);
@@ -293,6 +364,7 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     start,
     stop,
     saveConfig,
+    refreshSearchOptions,
   };
 }
 

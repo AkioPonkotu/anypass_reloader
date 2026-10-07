@@ -6,7 +6,8 @@ contextBridge.exposeInMainWorld('watcher', {
   getState: () => ipcRenderer.invoke('watcher:get-state'),
   getConfig: () => ipcRenderer.invoke('watcher:get-config'),
   saveConfig: (patch) => ipcRenderer.invoke('watcher:save-config', patch),
-  start: () => ipcRenderer.invoke('watcher:start'),
+  start: (payment) => ipcRenderer.invoke('watcher:start', payment),
   stop: () => ipcRenderer.invoke('watcher:stop'),
+  refreshSearchOptions: () => ipcRenderer.invoke('watcher:refresh-search-options'),
   showResaleList: () => ipcRenderer.invoke('watcher:show-resale-list'),
 });

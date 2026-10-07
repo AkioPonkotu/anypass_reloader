@@ -7,12 +7,6 @@
   "reload_time": 10,
   "open_match_page": true,
   "auto_purchase": false,
-  "credit_card": {
-    "number": "4111111111111111",
-    "expiration_month": "12",
-    "expiration_year": "2028",
-    "cvv": "123"
-  },
   "user_data_dir": ".anypass-profile",
   "screenshot_dir": "output/playwright"
 }

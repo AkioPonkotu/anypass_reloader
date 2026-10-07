@@ -24,13 +24,13 @@
         <section>
           <div class="section-title"><b>01</b><div><h3>検索条件</h3><small>少なくとも1つ入力してください。</small></div></div>
           <label class="field"><span>キーワード</span><input name="free_word" type="text" placeholder="アーティスト名・ツアー名" /></label>
-          <div class="field-grid">
           <div class="option-heading"><span>AnyPASS の絞り込み</span><button id="refresh-search-options" type="button">候補を更新</button></div>
           <div class="field-grid search-option-fields">
             <label class="field"><span>アーティスト</span><select name="search_artist"><option value="">候補を取得中…</option></select></label>
             <label class="field"><span>ツアー</span><select name="search_tour"><option value="">候補を取得中…</option></select></label>
             <label class="field field-wide"><span>イベント</span><select name="search_event"><option value="">候補を取得中…</option></select></label>
           </div>
+          <div class="field-grid">
             <label class="field"><span>希望枚数</span><input name="num_of_ticket" type="number" min="1" placeholder="2" /></label>
             <label class="field"><span>上限 / 枚</span><input name="max_price_per_ticket" type="number" min="1" placeholder="12,000" /></label>
             <label class="field"><span>公演日</span><input name="p_date" type="text" placeholder="2026/10/15" /></label>
@@ -55,12 +55,14 @@
           <div class="advanced-content">
             <p class="notice">決済情報の入力と確認ボタンまで自動化します。3Dセキュアと購入確定は必ず右側の画面でご自身で行ってください。</p>
             <label class="switch purchase"><span><b>決済情報の入力を自動化</b><small>右側の画面で事前にログインし、カード情報を設定してください。</small></span><input name="auto_purchase" type="checkbox" role="switch" /></label>
-            <label class="field"><span>カード番号</span><input name="credit_card.number" type="password" inputmode="numeric" placeholder="変更する場合のみ入力" autocomplete="cc-number" /></label>
+            <p id="saved-card-status" class="notice">保存済みカードはありません。</p>
+            <label class="field"><span>カード番号</span><input name="payment_card.number" type="password" inputmode="numeric" placeholder="変更する場合のみ入力" autocomplete="cc-number" /></label>
             <div class="field-grid">
-              <label class="field"><span>月</span><input name="credit_card.expiration_month" type="password" placeholder="MM" /></label>
-              <label class="field"><span>年</span><input name="credit_card.expiration_year" type="password" placeholder="YYYY" /></label>
+              <label class="field"><span>月</span><input name="payment_card.expiration_month" type="password" placeholder="MM" /></label>
+              <label class="field"><span>年</span><input name="payment_card.expiration_year" type="password" placeholder="YYYY" /></label>
             </div>
-            <label class="field"><span>セキュリティコード</span><input name="credit_card.cvv" type="password" placeholder="CVV" autocomplete="cc-csc" /></label>
+            <label class="field"><span>セキュリティコード</span><input name="payment_card.cvv" type="password" placeholder="自動購入する都度入力" autocomplete="cc-csc" /></label>
+            <p class="notice">カード番号と有効期限は Windows のユーザー暗号化領域に保存します。セキュリティコードは保存しません。</p>
           </div>
         </details>
 

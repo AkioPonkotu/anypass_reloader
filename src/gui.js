@@ -54,28 +54,13 @@ function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
-function maskCardNumber(value) {
-  const number = value === undefined || value === null ? '' : String(value);
-  return number ? `${'*'.repeat(Math.max(0, number.length - 4))}${number.slice(-4)}` : '';
-}
-
-function isMaskedCardNumber(value) {
-  return /^\*+\d{4}$/u.test(String(value));
-}
-
 function sanitizeConfig(config) {
   const raw = plainObject(config);
-  const card = plainObject(raw.credit_card);
   return {
-    free_word: raw.free_word ?? '', p_date: raw.p_date ?? '', p_date_from: raw.p_date_from ?? '', p_date_to: raw.p_date_to ?? '',
+    free_word: raw.free_word ?? '', search_artist: raw.search_artist ?? '', search_event: raw.search_event ?? '', search_tour: raw.search_tour ?? '',
+    p_date: raw.p_date ?? '', p_date_from: raw.p_date_from ?? '', p_date_to: raw.p_date_to ?? '',
     num_of_ticket: raw.num_of_ticket ?? '', max_price_per_ticket: raw.max_price_per_ticket ?? raw.budget ?? '', reload_time: raw.reload_time ?? 10,
     headless: raw.headless !== false, open_match_page: raw.open_match_page !== false, auto_purchase: raw.auto_purchase === true,
-    credit_card: {
-      number: maskCardNumber(card.number),
-      expiration_month: card.expiration_month ?? '',
-      expiration_year: card.expiration_year ?? '',
-      cvv: card.cvv ?? '',
-    },
     user_data_dir: raw.user_data_dir ?? '.anypass-profile', screenshot_dir: raw.screenshot_dir ?? 'output/playwright',
   };
 }
@@ -85,7 +70,7 @@ function mergeConfig(existing, patch) {
   const input = plainObject(patch);
   const merged = { ...current };
   const fields = [
-    'free_word', 'p_date', 'p_date_from', 'p_date_to', 'num_of_ticket', 'max_price_per_ticket', 'reload_time',
+    'free_word', 'search_artist', 'search_event', 'search_tour', 'p_date', 'p_date_from', 'p_date_to', 'num_of_ticket', 'max_price_per_ticket', 'reload_time',
     'headless', 'open_match_page', 'auto_purchase', 'user_data_dir', 'screenshot_dir',
   ];
   for (const field of fields) if (Object.hasOwn(input, field)) merged[field] = input[field];
@@ -97,17 +82,8 @@ function mergeConfig(existing, patch) {
   delete merged.auth;
   delete merged.account;
 
-  const inputCard = plainObject(input.credit_card);
-  const existingCard = plainObject(current.credit_card);
-  const cardFields = ['number', 'expiration_month', 'expiration_year', 'cvv'];
-  if (cardFields.some((field) => inputCard[field])) {
-    merged.credit_card = { ...existingCard };
-    for (const field of cardFields) {
-      if (inputCard[field] && !(field === 'number' && isMaskedCardNumber(inputCard[field]))) {
-        merged.credit_card[field] = inputCard[field];
-      }
-    }
-  }
+  // カード情報は config.json に残さない。デスクトップ版だけが OS 暗号化領域へ保存する。
+  delete merged.credit_card;
   return merged;
 }
 
