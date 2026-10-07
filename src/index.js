@@ -253,6 +253,7 @@ if (require.main === module) {
 }
 
 module.exports = {
+  run,
   collectTickets,
   parseArguments,
   searchOnce,
