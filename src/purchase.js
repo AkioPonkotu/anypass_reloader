@@ -2,7 +2,10 @@ const PAYMENT_NUMBER_SELECTOR = '#ccNumber_disp';
 const PAYMENT_MONTH_SELECTOR = '#ccExpirationMonth';
 const PAYMENT_YEAR_SELECTOR = '#ccExpirationYear_disp';
 const PAYMENT_CVV_SELECTOR = '#securityCode';
-const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
+// カード入力ページは画面幅や配信版によって「確認」「Confirmation」のどちらか、
+// または二言語を併記した「確認/Confirmation」を使う。アクセシブル名は表示文字列
+// 全体になるため、単語単体だけに完全一致させると併記版を検出できない。
+const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)(?:\s*\/\s*(?:確認|confirmation))?$/i;
 const PURCHASE_CONFIRMATION_NAMES = /購入を?確定(?:する)?|購入する|注文を?確定(?:する)?|確定して購入|complete purchase|place order/i;
 const { extractTicketCount, isIndividualPurchaseUnavailable } = require('./tickets');
 

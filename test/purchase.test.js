@@ -46,6 +46,25 @@ test('confirmPayment clicks the payment and purchase confirmation buttons', asyn
   assert.deepEqual(calls, ['payment', 'purchase']);
 });
 
+test('confirmPayment recognizes the bilingual payment confirmation label', async () => {
+  const calls = [];
+  const paymentConfirmation = createLocator({ visible: true, onClick: () => calls.push('payment') });
+  const purchaseConfirmation = createLocator({ visible: true, onClick: () => calls.push('purchase') });
+  const hidden = createLocator({ visible: false, onClick: () => {} });
+  const page = {
+    getByRole(role, options) {
+      if (role !== 'button') return hidden;
+      if (options.name.test('確認/Confirmation')) return paymentConfirmation;
+      if (options.name.test('購入を確定する（支払いに同意）')) return purchaseConfirmation;
+      return hidden;
+    },
+  };
+
+  await confirmPayment(page);
+
+  assert.deepEqual(calls, ['payment', 'purchase']);
+});
+
 test('confirmPayment fails without a visible confirmation control', async () => {
   const hidden = createLocator({ visible: false, onClick: () => {} });
   const page = {
