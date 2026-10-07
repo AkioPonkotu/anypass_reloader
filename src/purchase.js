@@ -73,6 +73,40 @@ async function loginIfNeeded(page, auth) {
   await page.waitForLoadState('domcontentloaded').catch(() => {});
 }
 
+async function setPurchaseTicketCount(page, ticketCount) {
+  if (!ticketCount) {
+    throw new Error('購入枚数が未設定です。num_of_ticket を指定してください。');
+  }
+
+  const amountSelects = page.locator('select[name^="amount["]');
+  const selectCount = await amountSelects.count();
+  if (selectCount === 0) {
+    throw new Error('詳細画面の購入枚数プルダウンを確認できませんでした。');
+  }
+  if (selectCount > 1) {
+    throw new Error('購入枚数プルダウンが複数あります。誤った合計枚数を選ばないよう自動購入を停止しました。');
+  }
+
+  const amountSelect = amountSelects.first();
+  const requestedValue = String(ticketCount);
+  const availableValues = await amountSelect.locator('option').evaluateAll((options) =>
+    options.map((option) => option.value)
+  );
+  if (!availableValues.includes(requestedValue)) {
+    throw new Error(
+      `希望枚数 ${ticketCount} 枚はこの出品では選択できません（選択可能: ${availableValues.join(', ')} 枚）。`
+    );
+  }
+
+  // ネイティブ select を更新して input/change イベントを発火するため、フォーム送信値と
+  // 画面上のカスタムプルダウン表示が食い違わない。
+  await amountSelect.selectOption({ value: requestedValue }, { force: true });
+  const selectedValue = await amountSelect.inputValue();
+  if (selectedValue !== requestedValue) {
+    throw new Error(`購入枚数を ${ticketCount} 枚に設定できませんでした。`);
+  }
+}
+
 async function advanceToPaymentEntry(page) {
   for (let step = 0; step < 3; step += 1) {
     if (await page.locator(PAYMENT_NUMBER_SELECTOR).isVisible().catch(() => false)) return;
@@ -100,4 +134,5 @@ module.exports = {
   advanceToPaymentEntry,
   fillPaymentEntry,
   loginIfNeeded,
+  setPurchaseTicketCount,
 };

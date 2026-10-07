@@ -56,6 +56,9 @@ function normalizeConfig(config, configDirectory) {
   const autoPurchase = parseBoolean(config.auto_purchase, 'auto_purchase', false);
   const auth = parseAuth(config.auth ?? config.account, autoPurchase);
   const creditCard = parseCreditCard(config.credit_card, autoPurchase);
+  if (autoPurchase && !ticketCount) {
+    throw new Error('auto_purchase を有効にするには num_of_ticket を指定してください。');
+  }
   if (autoPurchase && config.open_match_page === false) {
     throw new Error('auto_purchase を有効にするには open_match_page を true にしてください。');
   }

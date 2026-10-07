@@ -3,7 +3,12 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const { readConfig } = require('./config');
 const { findMatchingTicket } = require('./tickets');
-const { advanceToPaymentEntry, fillPaymentEntry, loginIfNeeded } = require('./purchase');
+const {
+  advanceToPaymentEntry,
+  fillPaymentEntry,
+  loginIfNeeded,
+  setPurchaseTicketCount,
+} = require('./purchase');
 
 const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
 const FORM_SELECTOR = 'form#resale_sidebar_pc_search_form';
@@ -187,6 +192,7 @@ async function run(options) {
         if (config.openMatchPage) {
           await page.goto(match.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
           if (config.autoPurchase) {
+            await setPurchaseTicketCount(page, config.ticketCount);
             await advanceToPaymentEntry(page);
             await fillPaymentEntry(page, config.creditCard);
             await page.bringToFront();

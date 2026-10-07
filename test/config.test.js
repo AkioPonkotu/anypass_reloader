@@ -67,6 +67,7 @@ test('normalizeConfig accepts checkout credentials and normalizes card fields', 
   const config = normalizeConfig(
     {
       free_word: 'SOPHIA',
+      num_of_ticket: 2,
       auto_purchase: true,
       auth: { email: 'user@example.com', password: 'password with spaces ' },
       credit_card: {
@@ -99,6 +100,7 @@ test('normalizeConfig requires complete authentication and card data for checkou
       normalizeConfig(
         {
           free_word: 'SOPHIA',
+          num_of_ticket: 2,
           auto_purchase: true,
           auth: { email: 'user@example.com', password: 'password' },
           credit_card: { number: '123', expiration_month: '13', expiration_year: 'x', cvv: '1' },
@@ -112,6 +114,7 @@ test('normalizeConfig requires complete authentication and card data for checkou
       normalizeConfig(
         {
           free_word: 'SOPHIA',
+          num_of_ticket: 2,
           auto_purchase: true,
           open_match_page: false,
           auth: { email: 'user@example.com', password: 'password' },
@@ -120,5 +123,18 @@ test('normalizeConfig requires complete authentication and card data for checkou
         'C:/work/anypass'
       ),
     /open_match_page/
+  );
+  assert.throws(
+    () =>
+      normalizeConfig(
+        {
+          free_word: 'SOPHIA',
+          auto_purchase: true,
+          auth: { email: 'user@example.com', password: 'password' },
+          credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
+        },
+        'C:/work/anypass'
+      ),
+    /num_of_ticket/
   );
 });
