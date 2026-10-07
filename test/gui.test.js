@@ -9,16 +9,17 @@ test('parseGuiArguments accepts GUI options', () => {
   assert.throws(() => parseGuiArguments(['--port', '0']), /1〜65535/);
 });
 
-test('sanitizeConfig never returns saved secrets', () => {
+test('sanitizeConfig returns saved card data so the settings form can restore it', () => {
   const config = sanitizeConfig({
     free_word: 'SOPHIA',
     auth: { email: 'person@example.com', password: 'secret' },
     credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
   });
-  assert.deepEqual(config.credit_card, { has_saved_card: true });
+  assert.deepEqual(config.credit_card, {
+    number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123',
+  });
   assert.equal(Object.hasOwn(config, 'auth'), false);
   assert.equal(JSON.stringify(config).includes('person@example.com'), false);
-  assert.equal(JSON.stringify(config).includes('4111111111111111'), false);
   assert.equal(JSON.stringify(config).includes('secret'), false);
 });
 

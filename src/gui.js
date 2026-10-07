@@ -61,7 +61,12 @@ function sanitizeConfig(config) {
     free_word: raw.free_word ?? '', p_date: raw.p_date ?? '', p_date_from: raw.p_date_from ?? '', p_date_to: raw.p_date_to ?? '',
     num_of_ticket: raw.num_of_ticket ?? '', max_price_per_ticket: raw.max_price_per_ticket ?? raw.budget ?? '', reload_time: raw.reload_time ?? 10,
     headless: raw.headless !== false, open_match_page: raw.open_match_page !== false, auto_purchase: raw.auto_purchase === true,
-    credit_card: { has_saved_card: Boolean(card.number && card.expiration_month && card.expiration_year && card.cvv) },
+    credit_card: {
+      number: card.number ?? '',
+      expiration_month: card.expiration_month ?? '',
+      expiration_year: card.expiration_year ?? '',
+      cvv: card.cvv ?? '',
+    },
     user_data_dir: raw.user_data_dir ?? '.anypass-profile', screenshot_dir: raw.screenshot_dir ?? 'output/playwright',
   };
 }

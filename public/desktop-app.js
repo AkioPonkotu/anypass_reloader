@@ -17,6 +17,7 @@ function setMessage(text, isError = false) { message.textContent = text; message
 function renderConfig(config) {
   for (const name of ['free_word', 'p_date', 'p_date_from', 'p_date_to', 'num_of_ticket', 'max_price_per_ticket', 'reload_time']) input(name).value = config[name] ?? '';
   for (const name of ['open_match_page', 'auto_purchase']) input(name).checked = Boolean(config[name]);
+  for (const name of ['number', 'expiration_month', 'expiration_year', 'cvv']) input(`credit_card.${name}`).value = config.credit_card?.[name] ?? '';
   syncAutoPurchaseOptions();
 }
 
@@ -69,7 +70,6 @@ function renderStatus(status) {
 async function saveConfig() {
   const config = await window.watcher.saveConfig(configFromForm());
   renderConfig(config);
-  for (const element of form.querySelectorAll('input[type="password"]')) element.value = '';
   setMessage('設定を保存しました。');
 }
 
