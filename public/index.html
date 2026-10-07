@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f4f7f5" />
+    <title>AnyPASS Watcher</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <div><p class="eyebrow">TICKET WATCHER</p><h1>AnyPASS Watcher</h1></div>
+        </div>
+        <div class="watch-state" id="watch-state" aria-live="polite"><span class="status-dot"></span><span id="watch-state-label">準備完了</span></div>
+      </header>
+
+      <section class="workspace" aria-label="監視設定">
+        <div class="settings-intro">
+          <p class="eyebrow">SEARCH CONDITIONS</p>
+          <h2>探したいチケットを<br />設定する</h2>
+          <p>条件に一致するリセールが見つかるまで、自動で検索を続けます。</p>
+        </div>
+        <form id="settings-form" novalidate>
+          <section class="form-section">
+            <div class="section-heading"><span>01</span><div><h3>公演・チケット条件</h3><p>少なくとも1つの条件を入力してください。</p></div></div>
+            <div class="form-grid">
+              <label class="field field-wide"><span>キーワード</span><input name="free_word" type="text" placeholder="アーティスト名・ツアー名" autocomplete="off" /></label>
+              <label class="field"><span>公演日（1日のみ）</span><input name="p_date" type="text" placeholder="2026/10/15" inputmode="numeric" /></label>
+              <label class="field"><span>希望枚数</span><input name="num_of_ticket" type="number" min="1" step="1" placeholder="例: 2" /></label>
+              <label class="field"><span>公演日（開始）</span><input name="p_date_from" type="text" placeholder="2026/10/01" inputmode="numeric" /></label>
+              <label class="field"><span>公演日（終了）</span><input name="p_date_to" type="text" placeholder="2026/10/31" inputmode="numeric" /></label>
+              <label class="field"><span>1枚あたりの上限</span><div class="input-with-unit"><input name="max_price_per_ticket" type="number" min="1" step="1" placeholder="例: 12000" /><b>円</b></div></label>
+              <label class="field"><span>検索間隔</span><div class="input-with-unit"><input name="reload_time" type="number" min="0.1" step="0.1" placeholder="10" /><b>秒</b></div></label>
+            </div>
+          </section>
+
+          <section class="form-section compact-section">
+            <div class="section-heading"><span>02</span><div><h3>実行方法</h3><p>見つかったときの動作を選びます。</p></div></div>
+            <div class="toggle-list">
+              <label class="toggle-row"><span><b>ブラウザを表示せずに検索</b><small>通常はこちら。初回ログイン時はオフにしてください。</small></span><input name="headless" type="checkbox" role="switch" /></label>
+              <label class="toggle-row"><span><b>見つかったチケットの詳細を開く</b><small>購入操作・確定操作は自動では行いません。</small></span><input name="open_match_page" type="checkbox" role="switch" /></label>
+            </div>
+          </section>
+
+          <details class="advanced-settings">
+            <summary>高度な設定・自動購入</summary>
+            <div class="advanced-content">
+              <p class="notice">自動購入は決済情報の入力と決済画面での確認まで進めます。3Dセキュア認証は必ずご自身で行います。</p>
+              <label class="toggle-row purchase-toggle"><span><b>決済情報の入力まで自動化する</b><small>利用時はメールアドレス、パスワード、カード情報が必要です。</small></span><input name="auto_purchase" type="checkbox" role="switch" /></label>
+              <div class="form-grid advanced-grid">
+                <label class="field field-wide"><span>AnyPASS メールアドレス</span><input name="auth.email" type="email" placeholder="name@example.com" autocomplete="username" /></label>
+                <label class="field field-wide"><span>パスワード</span><input name="auth.password" type="password" placeholder="変更する場合のみ入力" autocomplete="new-password" /></label>
+                <label class="field field-wide"><span>カード番号</span><input name="credit_card.number" type="password" inputmode="numeric" placeholder="変更する場合のみ入力" autocomplete="cc-number" /></label>
+                <label class="field"><span>有効期限（月）</span><input name="credit_card.expiration_month" type="password" inputmode="numeric" placeholder="MM" autocomplete="cc-exp-month" /></label>
+                <label class="field"><span>有効期限（年）</span><input name="credit_card.expiration_year" type="password" inputmode="numeric" placeholder="YYYY" autocomplete="cc-exp-year" /></label>
+                <label class="field"><span>セキュリティコード</span><input name="credit_card.cvv" type="password" inputmode="numeric" placeholder="CVV" autocomplete="cc-csc" /></label>
+              </div>
+            </div>
+          </details>
+
+          <div class="form-actions">
+            <p id="form-message" role="status"></p>
+            <button class="secondary-button" type="button" id="save-button">設定を保存</button>
+            <button class="primary-button" type="submit" id="start-button">監視を開始 <span aria-hidden="true">→</span></button>
+            <button class="stop-button" type="button" id="stop-button" hidden>停止する</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="activity" aria-labelledby="activity-title">
+        <div class="activity-heading"><div><p class="eyebrow">ACTIVITY</p><h2 id="activity-title">実行ログ</h2></div><span id="config-path" class="config-path"></span></div>
+        <ol id="log-list" class="log-list" aria-live="polite"><li class="empty-log">監視を開始すると、ここに状況が表示されます。</li></ol>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

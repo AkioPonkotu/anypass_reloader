@@ -144,6 +144,13 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+async function waitFor(milliseconds, isStopRequested) {
+  const deadline = Date.now() + milliseconds;
+  while (!isStopRequested() && Date.now() < deadline) {
+    await delay(Math.min(250, deadline - Date.now()));
+  }
+}
+
 async function waitForManualCheckout(context, isStopRequested) {
   // 3D セキュアが別タブで開くケースにも対応し、すべての画面を閉じるか明示的に停止するまで
   // コンテキストを維持する。
@@ -153,6 +160,7 @@ async function waitForManualCheckout(context, isStopRequested) {
 }
 
 async function run(options) {
+  const writeLog = options.log || log;
   const config = readConfig(options.configPath);
   if (options.headed) config.headless = false;
 
@@ -160,7 +168,7 @@ async function run(options) {
   // 必ず利用者が操作できるよう、自動購入時は最初から headed にする。
   if (config.autoPurchase && config.headless) {
     config.headless = false;
-    log('auto_purchase が有効なため、決済画面以降を表示できるようブラウザを headed で起動します。');
+    writeLog('auto_purchase が有効なため、決済画面以降を表示できるようブラウザを headed で起動します。');
   }
 
   const context = await chromium.launchPersistentContext(config.userDataDir, {
@@ -173,10 +181,11 @@ async function run(options) {
   let stopRequested = false;
   const requestStop = () => {
     stopRequested = true;
-    log('停止要求を受け取りました。現在の処理を完了して終了します。');
+    writeLog('停止要求を受け取りました。現在の処理を完了して終了します。');
   };
   process.once('SIGINT', requestStop);
   process.once('SIGTERM', requestStop);
+  options.signal?.addEventListener('abort', requestStop, { once: true });
 
   try {
     await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -186,9 +195,9 @@ async function run(options) {
       const { tickets, match } = await searchOnce(page, config);
 
       if (match) {
-        log(`条件に一致するチケットを検出しました: ${match.url}`);
+        writeLog(`条件に一致するチケットを検出しました: ${match.url}`);
         const screenshotPath = await captureMatch(page, config);
-        log(`一覧のスクリーンショットを保存しました: ${screenshotPath}`);
+        writeLog(`一覧のスクリーンショットを保存しました: ${screenshotPath}`);
 
         if (config.openMatchPage) {
           await page.goto(match.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -198,26 +207,27 @@ async function run(options) {
             await fillPaymentEntry(page, config.creditCard);
             await confirmPayment(page);
             await page.bringToFront();
-            log('決済確認ボタンを押しました。3Dセキュアは表示中のブラウザで利用者自身が完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
+            writeLog('決済確認ボタンを押しました。3Dセキュアは表示中のブラウザで利用者自身が完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
             await waitForManualCheckout(context, () => stopRequested);
           } else {
-            log('該当チケットの詳細ページを開きました。購入・確定操作は行いません。');
+            writeLog('該当チケットの詳細ページを開きました。購入・確定操作は行いません。');
           }
         }
         return true;
       }
 
-      log(`一致するチケットはありません（検索結果 ${tickets.length} 件）。`);
+      writeLog(`一致するチケットはありません（検索結果 ${tickets.length} 件）。`);
       if (options.once || stopRequested) return false;
 
-      log(`${config.reloadSeconds} 秒後に再検索します。`);
-      await delay(config.reloadSeconds * 1000);
+      writeLog(`${config.reloadSeconds} 秒後に再検索します。`);
+      await waitFor(config.reloadSeconds * 1000, () => stopRequested);
     } while (!stopRequested);
 
     return false;
   } finally {
     process.removeListener('SIGINT', requestStop);
     process.removeListener('SIGTERM', requestStop);
+    options.signal?.removeEventListener('abort', requestStop);
     await context.close();
   }
 }
@@ -244,4 +254,5 @@ module.exports = {
   searchOnce,
   serverPriceMaxForBudget,
   ticketCountLabel,
+  waitFor,
 };

@@ -1,7 +1,7 @@
 # AnyPASS リセール監視（Playwright）
 
-`https://store.anypass.jp/resale-list` を headless Playwright で定期的に検索する
-Node.js CLI です。指定条件に一致するチケットが見つかると、詳細 URL と一覧の
+`https://store.anypass.jp/resale-list` を Playwright で定期的に検索する
+Node.js アプリです。一般ユーザー向けのブラウザ GUI と CLI の両方に対応しています。指定条件に一致するチケットが見つかると、詳細 URL と一覧の
 スクリーンショットを保存し、詳細ページを開いて終了します。任意でログイン、購入手続き、
 決済情報の入力と「確認」ボタンの押下までを自動化できます。3D セキュア認証は利用者がブラウザ上で行います。
 
@@ -68,6 +68,24 @@ Copy-Item config.example.json config.json
 | `screenshot_dir` | 一致時に一覧を保存するディレクトリ。 |
 
 ## 実行
+
+### GUI（推奨）
+
+次のコマンドでブラウザの操作画面が開きます。画面から検索条件の保存、監視の開始・停止、実行ログの確認ができます。
+
+```powershell
+npm run gui
+```
+
+GUI は自分の PC 上の `http://127.0.0.1:4317` だけで動作します。設定済みのパスワード・カード情報は画面に読み戻さないため、変更が必要な場合だけ入力してください。
+
+別の設定ファイルを使う場合は、次のように指定します。
+
+```powershell
+npm run gui -- --config config.json
+```
+
+### CLI
 
 監視を開始します。
 
