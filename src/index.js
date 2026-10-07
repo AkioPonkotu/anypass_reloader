@@ -59,7 +59,10 @@ async function applySearchFilter(page, config) {
 
   const ticketCount = ticketCountLabel(config.ticketCount);
   if (ticketCount) {
-    await form.locator('select[name="ticket_count"]').selectOption({ label: ticketCount });
+    // サイトは select を独自 UI で覆うため、ネイティブ要素へ値を設定して change を発火する。
+    await form
+      .locator('select[name="ticket_count"]')
+      .selectOption({ label: ticketCount }, { force: true });
   }
 
   const excludeInProgress = form.locator(
@@ -69,9 +72,12 @@ async function applySearchFilter(page, config) {
     await excludeInProgress.check();
   }
 
-  await form.getByRole('button', { name: '検索', exact: true }).click();
-  await page.waitForLoadState('domcontentloaded');
-  await page.waitForTimeout(300);
+  // 検索は POST 後に同じ URL へ遷移する。click() のナビゲーション待機に任せると、
+  // 外部 iframe の load 完了待ちに巻き込まれるため、送信だけ行って一覧の出現を待つ。
+  await form
+    .getByRole('button', { name: '検索', exact: true })
+    .click({ noWaitAfter: true });
+  await page.waitForTimeout(500);
 }
 
 async function collectTickets(page) {
@@ -114,6 +120,8 @@ async function run(options) {
     viewport: { width: 1440, height: 1000 },
   });
   const page = context.pages()[0] || (await context.newPage());
+  page.setDefaultTimeout(15_000);
+  page.setDefaultNavigationTimeout(30_000);
   let stopRequested = false;
   const requestStop = () => {
     stopRequested = true;
