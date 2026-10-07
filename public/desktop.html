@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AnyPASS Watcher</title>
+    <link rel="stylesheet" href="desktop.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="brand"><span aria-hidden="true">A</span><div><p>RESALE MONITOR</p><h1>AnyPASS Watcher</h1></div></div>
+        <div id="watch-state" class="watch-state"><i></i><strong id="watch-state-label">準備完了</strong></div>
+      </header>
+
+      <section class="intro">
+        <p class="eyebrow">AUTOMATION CONTROL</p>
+        <h2>見つけるまで、<br />画面の中で。</h2>
+        <p>右側のネイティブブラウザで、検索・ログイン・3Dセキュアをそのまま確認できます。</p>
+      </section>
+
+      <form id="settings-form" novalidate>
+        <section>
+          <div class="section-title"><b>01</b><div><h3>検索条件</h3><small>少なくとも1つ入力してください。</small></div></div>
+          <label class="field"><span>キーワード</span><input name="free_word" type="text" placeholder="アーティスト名・ツアー名" /></label>
+          <div class="field-grid">
+            <label class="field"><span>希望枚数</span><input name="num_of_ticket" type="number" min="1" placeholder="2" /></label>
+            <label class="field"><span>上限 / 枚</span><input name="max_price_per_ticket" type="number" min="1" placeholder="12,000" /></label>
+            <label class="field"><span>公演日</span><input name="p_date" type="text" placeholder="2026/10/15" /></label>
+            <label class="field"><span>間隔（秒）</span><input name="reload_time" type="number" min="0.1" step="0.1" placeholder="10" /></label>
+          </div>
+          <details>
+            <summary>日付範囲を使う</summary>
+            <div class="field-grid range-fields">
+              <label class="field"><span>開始</span><input name="p_date_from" type="text" placeholder="2026/10/01" /></label>
+              <label class="field"><span>終了</span><input name="p_date_to" type="text" placeholder="2026/10/31" /></label>
+            </div>
+          </details>
+        </section>
+
+        <section>
+          <div class="section-title"><b>02</b><div><h3>検出時の動作</h3><small>詳細画面は右側に表示されます。</small></div></div>
+          <label class="switch"><span><b>詳細ページを開く</b><small>一致した出品をブラウザ内で開きます。</small></span><input name="open_match_page" type="checkbox" role="switch" /></label>
+        </section>
+
+        <details class="advanced">
+          <summary>自動購入の設定</summary>
+          <div class="advanced-content">
+            <p class="notice">決済情報の入力と確認ボタンまで自動化します。3Dセキュアと購入確定は必ず右側の画面でご自身で行ってください。</p>
+            <label class="switch purchase"><span><b>決済情報の入力を自動化</b><small>メール、パスワード、カード情報が必要です。</small></span><input name="auto_purchase" type="checkbox" role="switch" /></label>
+            <label class="field"><span>AnyPASS メールアドレス</span><input name="auth.email" type="email" placeholder="name@example.com" autocomplete="username" /></label>
+            <label class="field"><span>パスワード</span><input name="auth.password" type="password" placeholder="変更する場合のみ入力" autocomplete="new-password" /></label>
+            <label class="field"><span>カード番号</span><input name="credit_card.number" type="password" inputmode="numeric" placeholder="変更する場合のみ入力" autocomplete="cc-number" /></label>
+            <div class="field-grid">
+              <label class="field"><span>月</span><input name="credit_card.expiration_month" type="password" placeholder="MM" /></label>
+              <label class="field"><span>年</span><input name="credit_card.expiration_year" type="password" placeholder="YYYY" /></label>
+            </div>
+            <label class="field"><span>セキュリティコード</span><input name="credit_card.cvv" type="password" placeholder="CVV" autocomplete="cc-csc" /></label>
+          </div>
+        </details>
+
+        <p id="form-message" role="status"></p>
+        <div class="actions">
+          <button id="save-button" class="quiet" type="button">設定を保存</button>
+          <button id="start-button" class="start" type="submit">監視を開始 <span>→</span></button>
+          <button id="stop-button" class="stop" type="button" hidden>停止する</button>
+        </div>
+        <button id="show-resale-button" class="show-page" type="button">リセール一覧を表示</button>
+      </form>
+
+      <section class="activity">
+        <div><p class="eyebrow">LIVE ACTIVITY</p><h3>実行ログ</h3></div>
+        <ol id="log-list"><li class="empty">監視を開始すると、ここに状況が表示されます。</li></ol>
+      </section>
+    </main>
+    <script src="desktop-app.js"></script>
+  </body>
+</html>

@@ -1,21 +1,30 @@
-# AnyPASS リセール監視（Playwright）
+# AnyPASS リセール監視（Electron + Playwright）
 
 `https://store.anypass.jp/resale-list` を Playwright で定期的に検索する
-Node.js アプリです。一般ユーザー向けのブラウザ GUI と CLI の両方に対応しています。指定条件に一致するチケットが見つかると、詳細 URL と一覧の
+Node.js アプリです。Electron デスクトップ GUI と CLI に対応しています。GUI は右側に
+AnyPASS のネイティブ WebView を内包し、検索・ログイン・一致後の詳細画面・3D セキュアを
+同じウィンドウで確認できます。指定条件に一致するチケットが見つかると、詳細 URL と一覧の
 スクリーンショットを保存し、詳細ページを開いて終了します。任意でログイン、購入手続き、
-決済情報の入力と「確認」ボタンの押下までを自動化できます。3D セキュア認証は利用者がブラウザ上で行います。
+決済情報の入力と「確認」ボタンの押下までを自動化できます。3D セキュア認証と購入確定は
+利用者が GUI 内の画面で行います。
 
 ## 必要環境
 
 - Node.js 20 以上
-- Chromium を起動できる環境
+- GUI は Electron を実行できる環境
+- CLI も使う場合は Playwright 用 Chromium
 
 ## セットアップ
 
 ```powershell
 npm install
-npm run setup-browser
 Copy-Item config.example.json config.json
+```
+
+CLI も利用する場合だけ、追加で Chromium をインストールします。
+
+```powershell
+npm run setup-browser
 ```
 
 `config.json` を編集して監視条件を設定します。少なくとも `free_word`、`p_date`、
@@ -69,20 +78,33 @@ Copy-Item config.example.json config.json
 
 ## 実行
 
-### GUI（推奨）
+### デスクトップ GUI（推奨）
 
-次のコマンドでブラウザの操作画面が開きます。画面から検索条件の保存、監視の開始・停止、実行ログの確認ができます。
+次のコマンドでデスクトップアプリを開きます。左側で検索条件の保存、監視の開始・停止、
+実行ログの確認ができ、右側のネイティブ WebView には Playwright が実際に操作する
+AnyPASS の画面が表示されます。停止後も表示中のページは閉じないため、ログイン状態や
+検出したチケットを確認できます。
 
 ```powershell
 npm run gui
 ```
 
-GUI は自分の PC 上の `http://127.0.0.1:4317` だけで動作します。設定済みのパスワード・カード情報は画面に読み戻さないため、変更が必要な場合だけ入力してください。
+設定済みのパスワード・カード情報は画面に読み戻さないため、変更が必要な場合だけ入力してください。
 
 別の設定ファイルを使う場合は、次のように指定します。
 
 ```powershell
 npm run gui -- --config config.json
+```
+
+GUI では `headless` の設定にかかわらず、ブラウザをアプリ内へ表示します。Cookie とログイン
+状態は Electron のローカルプロファイルに保存されます。右側の「リセール一覧を表示」から、
+監視を始める前に手動ログインや表示確認を行えます。
+
+以前のローカル HTTP GUI が必要な場合は、互換用コマンドを使えます。
+
+```powershell
+npm run web-gui -- --config config.json
 ```
 
 ### CLI
@@ -99,8 +121,8 @@ npm start -- --config config.json
 npm start -- --config config.json --once
 ```
 
-ログイン状態が必要な場合や初回の確認時は、ブラウザを表示して起動します。ログイン後の
-状態は `user_data_dir` に保存され、次回以降の headless 実行でも使われます。
+ログイン状態が必要な場合や初回の確認時は、別ウィンドウのブラウザを表示して起動します。
+ログイン後の状態は `user_data_dir` に保存され、次回以降の headless 実行でも使われます。
 
 ```powershell
 npm start -- --config config.json --headed --once
@@ -117,9 +139,8 @@ Git 管理から除外されています。
 
 購入手続きが始まると、`headless: true` の設定でもブラウザを強制的に表示します。
 カード情報を入力後、「確認 / Confirmation」ボタンを自動で押して 3D セキュアを開始します。
-以後は表示中のブラウザで認証を利用者自身が完了してください。3D セキュアの認証操作・
-購入確定は自動実行しません。3D セキュアが別タブで開く場合も、そのタブを閉じるまで
-プロセスを維持します。
+以後は GUI 内に表示中のブラウザで認証を利用者自身が完了してください。3D セキュアの認証操作・
+購入確定は自動実行しません。3D セキュアが別ウィンドウで開く場合も、Electron 内で表示されます。
 
 購入詳細に枚数プルダウンが 1 つだけある場合、`num_of_ticket` と同じ値を選択してから
 購入手続きへ進みます。希望枚数が選択肢にない場合や、プルダウンが複数ある場合は、

@@ -2,11 +2,12 @@
   "name": "anypass-reloader",
   "version": "2.0.0",
   "private": true,
-  "description": "AnyPASS resale-list watcher runnable with headless Playwright",
-  "main": "src/index.js",
+  "description": "AnyPASS resale-list watcher with an embedded Electron browser",
+  "main": "src/desktop.js",
   "scripts": {
     "start": "node src/index.js",
-    "gui": "node src/gui.js",
+    "gui": "electron src/desktop.js",
+    "web-gui": "node src/gui.js",
     "setup-browser": "playwright install chromium",
     "test": "node --test"
   },
@@ -15,5 +16,8 @@
   },
   "dependencies": {
     "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "electron": "^40.0.0"
   }
 }

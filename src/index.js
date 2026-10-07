@@ -171,11 +171,15 @@ async function run(options) {
     writeLog('auto_purchase が有効なため、決済画面以降を表示できるようブラウザを headed で起動します。');
   }
 
-  const context = await chromium.launchPersistentContext(config.userDataDir, {
+  // Electron の埋め込み WebContents を CDP 経由で渡せるようにしている。
+  // context を呼び出し元が所有する場合は閉じないため、検索停止後も画面上で
+  // ログイン状態・検出した詳細ページを確認できる。
+  const ownsContext = !options.context;
+  const context = options.context || await chromium.launchPersistentContext(config.userDataDir, {
     headless: config.headless,
     viewport: { width: 1440, height: 1000 },
   });
-  const page = context.pages()[0] || (await context.newPage());
+  const page = options.page || context.pages()[0] || (await context.newPage());
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(30_000);
   let stopRequested = false;
@@ -228,7 +232,7 @@ async function run(options) {
     process.removeListener('SIGINT', requestStop);
     process.removeListener('SIGTERM', requestStop);
     options.signal?.removeEventListener('abort', requestStop);
-    await context.close();
+    if (ownsContext || options.closeContext) await context.close();
   }
 }
 
