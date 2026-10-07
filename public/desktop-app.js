@@ -123,9 +123,9 @@ input('auto_purchase').addEventListener('change', () => {
 form.addEventListener('submit', async (event) => {
   event.preventDefault();
   try {
-    if (input('auto_purchase').checked && !window.confirm('決済情報の入力と確認ボタンまで自動化します。3Dセキュアと購入確定は右側の画面でご自身で行います。続けますか？')) return;
-    await saveConfig();
+    if (input('auto_purchase').checked && !window.confirm('決済情報の入力、購入確定、3Dセキュア開始まで自動化します。3Dセキュアの認証入力・完了は右側の画面でご自身で行います。続けますか？')) return;
     const cvv = input('payment_card.cvv').value;
+    await saveConfig();
     input('payment_card.cvv').value = '';
     renderStatus(await window.watcher.start({ cvv }));
     setMessage('GUI内のブラウザで監視を開始しました。');
