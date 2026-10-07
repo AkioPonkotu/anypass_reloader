@@ -5,7 +5,10 @@ const PAYMENT_CVV_SELECTOR = '#securityCode';
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
 const LOGIN_SUBMIT_NAMES = /ログイン|sign in|log in|次へ|continue/i;
-const CHECKOUT_NAMES = /購入手続きへ|購入する|お支払いへ|支払いへ|checkout/i;
+const INITIAL_CHECKOUT_NAMES = /購入手続きへ|購入する|お支払いへ|支払いへ|checkout/i;
+// 最初の詳細ページ以降は「購入する」のような確定に見える文言を自動クリックしない。
+// これにより、決済代行画面の確認・3D セキュア開始は常に利用者が判断できる。
+const CONTINUE_TO_PAYMENT_NAMES = /購入手続きへ|お支払いへ|支払いへ|checkout/i;
 
 async function firstVisibleLocator(locators) {
   for (const locator of locators) {
@@ -39,7 +42,10 @@ async function loginIfNeeded(page, auth) {
     ]);
     if (!loginLink) return; // 保存済みのログイン状態である可能性がある。
     await loginLink.click({ noWaitAfter: true });
-    await page.waitForTimeout(300);
+    await page
+      .locator('input[type="email"], input[name*="mail" i], input[id*="mail" i]')
+      .first()
+      .waitFor({ state: 'visible', timeout: 15_000 });
     email = await emailInput();
   }
 
@@ -54,7 +60,7 @@ async function loginIfNeeded(page, auth) {
       [page.getByRole('button', { name: LOGIN_SUBMIT_NAMES }), page.getByRole('link', { name: LOGIN_SUBMIT_NAMES })],
       'ログインの続行ボタン'
     );
-    await page.waitForTimeout(300);
+    await page.locator('input[type="password"]').first().waitFor({ state: 'visible', timeout: 15_000 });
     password = await firstVisibleLocator([page.locator('input[type="password"]')]);
   }
   if (!password) throw new Error('ログイン画面のパスワード入力欄を確認できませんでした。');
@@ -71,7 +77,10 @@ async function advanceToPaymentEntry(page) {
   for (let step = 0; step < 3; step += 1) {
     if (await page.locator(PAYMENT_NUMBER_SELECTOR).isVisible().catch(() => false)) return;
     await clickFirstVisible(
-      [page.getByRole('button', { name: CHECKOUT_NAMES }), page.getByRole('link', { name: CHECKOUT_NAMES })],
+      [
+        page.getByRole('button', { name: step === 0 ? INITIAL_CHECKOUT_NAMES : CONTINUE_TO_PAYMENT_NAMES }),
+        page.getByRole('link', { name: step === 0 ? INITIAL_CHECKOUT_NAMES : CONTINUE_TO_PAYMENT_NAMES }),
+      ],
       '購入手続きボタン'
     );
     await page.waitForTimeout(500);
