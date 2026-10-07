@@ -16,6 +16,17 @@ const INITIAL_CHECKOUT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進め�
 // 3D セキュアの開始画面まで進める。3D セキュアの認証入力・完了操作は利用者が行う。
 const CONTINUE_TO_PAYMENT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
 const CHECKOUT_CONTROL_WAIT_MS = 15_000;
+const TICKET_COUNT_MISMATCH_CODE = 'TICKET_COUNT_MISMATCH';
+
+function ticketCountMismatchError(message) {
+  const error = new Error(message);
+  error.code = TICKET_COUNT_MISMATCH_CODE;
+  return error;
+}
+
+function isTicketCountMismatchError(error) {
+  return error?.code === TICKET_COUNT_MISMATCH_CODE;
+}
 
 async function firstVisibleLocator(locators, timeout = 0) {
   const deadline = Date.now() + timeout;
@@ -95,7 +106,7 @@ async function setPurchaseTicketCount(page, ticketCount, matchedTicket) {
       const listedTicketCount = extractTicketCount(listingText);
       if (listedTicketCount === ticketCount) return;
 
-      throw new Error(
+      throw ticketCountMismatchError(
         `バラ購入不可の出品枚数 ${listedTicketCount ?? '不明'} 枚が希望枚数 ${ticketCount} 枚と一致しません。`
       );
     }
@@ -111,7 +122,7 @@ async function setPurchaseTicketCount(page, ticketCount, matchedTicket) {
     options.map((option) => option.value)
   );
   if (!availableValues.includes(requestedValue)) {
-    throw new Error(
+    throw ticketCountMismatchError(
       `希望枚数 ${ticketCount} 枚はこの出品では選択できません（選択可能: ${availableValues.join(', ')} 枚）。`
     );
   }
@@ -121,7 +132,7 @@ async function setPurchaseTicketCount(page, ticketCount, matchedTicket) {
   await amountSelect.selectOption({ value: requestedValue }, { force: true });
   const selectedValue = await amountSelect.inputValue();
   if (selectedValue !== requestedValue) {
-    throw new Error(`購入枚数を ${ticketCount} 枚に設定できませんでした。`);
+    throw ticketCountMismatchError(`購入枚数を ${ticketCount} 枚に設定できませんでした。`);
   }
 }
 
@@ -171,6 +182,7 @@ module.exports = {
   advanceToPaymentEntry,
   confirmPayment,
   fillPaymentEntry,
+  isTicketCountMismatchError,
   isLoginRequired,
   openLoginPageIfNeeded,
   setPurchaseTicketCount,

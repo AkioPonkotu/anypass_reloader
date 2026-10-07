@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   advanceToPaymentEntry,
   confirmPayment,
+  isTicketCountMismatchError,
   isLoginRequired,
   openLoginPageIfNeeded,
   setPurchaseTicketCount,
@@ -149,7 +150,37 @@ test('setPurchaseTicketCount rejects a no-partial-purchase listing with a differ
     setPurchaseTicketCount(createNoAmountSelectPage(), 2, {
       text: '一般指定席 × 3枚 バラ購入不可',
     }),
-    /出品枚数 3 枚が希望枚数 2 枚と一致しません/
+    (error) => {
+      assert.match(error.message, /出品枚数 3 枚が希望枚数 2 枚と一致しません/);
+      return isTicketCountMismatchError(error);
+    }
+  );
+});
+
+test('setPurchaseTicketCount marks an unavailable requested select value as a count mismatch', async () => {
+  const page = {
+    locator(selector) {
+      assert.equal(selector, 'select[name^="amount["]');
+      return {
+        async count() { return 1; },
+        first() {
+          return {
+            locator(optionSelector) {
+              assert.equal(optionSelector, 'option');
+              return { evaluateAll: async () => ['1'] };
+            },
+          };
+        },
+      };
+    },
+  };
+
+  await assert.rejects(
+    setPurchaseTicketCount(page, 2),
+    (error) => {
+      assert.match(error.message, /希望枚数 2 枚はこの出品では選択できません/);
+      return isTicketCountMismatchError(error);
+    }
   );
 });
 

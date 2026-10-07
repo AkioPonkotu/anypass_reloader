@@ -9,6 +9,7 @@ const {
   confirmPayment,
   fillPaymentEntry,
   isLoginRequired,
+  isTicketCountMismatchError,
   setPurchaseTicketCount,
 } = require('./purchase');
 
@@ -234,7 +235,21 @@ async function run(options) {
         if (config.openMatchPage) {
           await page.goto(match.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
           if (config.autoPurchase) {
-            await setPurchaseTicketCount(page, config.ticketCount, match);
+            try {
+              await setPurchaseTicketCount(page, config.ticketCount, match);
+            } catch (error) {
+              if (!isTicketCountMismatchError(error)) throw error;
+
+              writeLog(`出品の購入枚数が希望条件と一致しないためスキップします: ${error.message}`);
+              if (options.once || stopRequested) return false;
+
+              // 詳細画面に残らず一覧へ戻し、次の検索まで待機する。詳細ページを開いてから
+              // 出品の枚数が変わっていた場合にも、1 枚だけを誤購入しない。
+              await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+              writeLog(`${config.reloadSeconds} 秒後に再検索します。`);
+              await waitFor(config.reloadSeconds * 1000, () => stopRequested);
+              continue;
+            }
             await advanceToPaymentEntry(page);
             // 暗号化済みカードは、この入力直前にだけ呼び出し元で復号する。
             await fillPaymentEntry(page, await options.getCreditCard());
