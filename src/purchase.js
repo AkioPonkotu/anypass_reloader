@@ -15,7 +15,9 @@ const INITIAL_CHECKOUT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進め�
 // 決済代行画面では、カード情報確認後に表示される購入確定ボタンだけを押して
 // 3D セキュアの開始画面まで進める。3D セキュアの認証入力・完了操作は利用者が行う。
 const CONTINUE_TO_PAYMENT_NAMES = /購入手続き(?:へ|に|を)?(?:進む|進める|する)?|お申込み?手続き(?:へ|に|を)?(?:進む|進める|する)?|お支払いへ|支払いへ|checkout/i;
-const CHECKOUT_CONTROL_WAIT_MS = 15_000;
+// 詳細画面のフォーム送信後、AnyPASS 側で購入確認ページの生成に十数秒かかる
+// 場合がある。カード情報入力画面への遷移途中で探索を打ち切らないようにする。
+const CHECKOUT_CONTROL_WAIT_MS = 30_000;
 const TICKET_COUNT_MISMATCH_CODE = 'TICKET_COUNT_MISMATCH';
 
 function ticketCountMismatchError(message) {
@@ -52,10 +54,16 @@ async function clickFirstVisible(locators, description, timeout) {
 }
 
 function checkoutControls(page, names) {
-  const controls = [
+  const controls = [];
+
+  // 購入確認ページではカード入力へ進む submit が #purchase_btn で提供される。
+  // role/name の解釈や表示文言の揺れより先に、サイト固有の確実な導線を確認する。
+  if (names === INITIAL_CHECKOUT_NAMES) controls.push(page.locator('#purchase_btn'));
+
+  controls.push(
     page.getByRole('button', { name: names }),
     page.getByRole('link', { name: names }),
-  ];
+  );
 
   // SPA のマークアップ変更で button/link のアクセシブル名が取れない場合も、画面に
   // 表示されている導線を押せるようテキストベースの候補を補助的に使う。

@@ -130,6 +130,42 @@ test('advanceToPaymentEntry clicks the credit-card-information entry button', as
   assert.deepEqual(calls, ['card-entry']);
 });
 
+test('advanceToPaymentEntry prioritizes the purchase confirmation card-entry control', async () => {
+  const calls = [];
+  let paymentVisible = false;
+  const hidden = createLocator({ visible: false, onClick: () => {} });
+  const purchaseButton = createLocator({
+    visible: true,
+    onClick: () => {
+      calls.push('purchase_btn');
+      paymentVisible = true;
+    },
+  });
+  const payment = {
+    async isVisible() {
+      return paymentVisible;
+    },
+    async waitFor() {
+      assert.equal(paymentVisible, true);
+    },
+  };
+  const page = {
+    locator(selector) {
+      if (selector === '#ccNumber_disp') return payment;
+      if (selector === '#purchase_btn') return purchaseButton;
+      return hidden;
+    },
+    getByRole() {
+      return hidden;
+    },
+    async waitForTimeout() {},
+  };
+
+  await advanceToPaymentEntry(page);
+
+  assert.deepEqual(calls, ['purchase_btn']);
+});
+
 test('agreeToPurchaseTerms checks every unchecked purchase agreement', async () => {
   const checks = [false, true];
   const calls = [];
