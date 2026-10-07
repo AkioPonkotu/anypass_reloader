@@ -54,6 +54,15 @@ function plainObject(value) {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 
+function maskCardNumber(value) {
+  const number = value === undefined || value === null ? '' : String(value);
+  return number ? `${'*'.repeat(Math.max(0, number.length - 4))}${number.slice(-4)}` : '';
+}
+
+function isMaskedCardNumber(value) {
+  return /^\*+\d{4}$/u.test(String(value));
+}
+
 function sanitizeConfig(config) {
   const raw = plainObject(config);
   const card = plainObject(raw.credit_card);
@@ -62,7 +71,7 @@ function sanitizeConfig(config) {
     num_of_ticket: raw.num_of_ticket ?? '', max_price_per_ticket: raw.max_price_per_ticket ?? raw.budget ?? '', reload_time: raw.reload_time ?? 10,
     headless: raw.headless !== false, open_match_page: raw.open_match_page !== false, auto_purchase: raw.auto_purchase === true,
     credit_card: {
-      number: card.number ?? '',
+      number: maskCardNumber(card.number),
       expiration_month: card.expiration_month ?? '',
       expiration_year: card.expiration_year ?? '',
       cvv: card.cvv ?? '',
@@ -93,7 +102,11 @@ function mergeConfig(existing, patch) {
   const cardFields = ['number', 'expiration_month', 'expiration_year', 'cvv'];
   if (cardFields.some((field) => inputCard[field])) {
     merged.credit_card = { ...existingCard };
-    for (const field of cardFields) if (inputCard[field]) merged.credit_card[field] = inputCard[field];
+    for (const field of cardFields) {
+      if (inputCard[field] && !(field === 'number' && isMaskedCardNumber(inputCard[field]))) {
+        merged.credit_card[field] = inputCard[field];
+      }
+    }
   }
   return merged;
 }
