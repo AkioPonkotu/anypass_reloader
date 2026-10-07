@@ -53,4 +53,12 @@ test('normalizeConfig rejects invalid or reversed date ranges', () => {
       ),
     /以前の日付/
   );
+  assert.throws(
+    () =>
+      normalizeConfig(
+        { p_date: '2026/10/15', p_date_from: '2026/10/01' },
+        'C:/work/anypass'
+      ),
+    /同時に指定できません/
+  );
 });

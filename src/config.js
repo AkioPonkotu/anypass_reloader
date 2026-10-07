@@ -41,6 +41,9 @@ function normalizeConfig(config, configDirectory) {
   if (dateFrom && dateTo && dateFrom > dateTo) {
     throw new Error('p_date_from は p_date_to 以前の日付にしてください。');
   }
+  if (date && (dateFrom || dateTo)) {
+    throw new Error('p_date と p_date_from / p_date_to は同時に指定できません。');
+  }
 
   if (!freeWord && !date && !dateFrom && !dateTo && !ticketCount && !budget) {
     throw new Error(
