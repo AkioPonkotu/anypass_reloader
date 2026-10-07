@@ -5,6 +5,7 @@ const { readConfig } = require('./config');
 const { findMatchingTicket } = require('./tickets');
 const { SEARCH_FILTERS, collectSearchOptions } = require('./search-options');
 const {
+  agreeToPurchaseTerms,
   advanceToPaymentEntry,
   confirmPayment,
   fillPaymentEntry,
@@ -250,6 +251,7 @@ async function run(options) {
               await waitFor(config.reloadSeconds * 1000, () => stopRequested);
               continue;
             }
+            await agreeToPurchaseTerms(page);
             await advanceToPaymentEntry(page);
             // 暗号化済みカードは、この入力直前にだけ呼び出し元で復号する。
             await fillPaymentEntry(page, await options.getCreditCard());

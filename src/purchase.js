@@ -136,6 +136,22 @@ async function setPurchaseTicketCount(page, ticketCount, matchedTicket) {
   }
 }
 
+async function agreeToPurchaseTerms(page) {
+  // AnyPASS の詳細画面では、#purchase_term_check 内の全ての規約同意を
+  // チェックするまで「購入手続きへ」が disabled のままになる。
+  // custom checkbox の見た目に左右されず、実際の input を操作して click
+  // イベントを発火させる。
+  const checkboxes = page.locator('#purchase_term_check input[name="purchase-check"]');
+  const checkboxCount = await checkboxes.count();
+
+  for (let index = 0; index < checkboxCount; index += 1) {
+    const checkbox = checkboxes.nth(index);
+    if (!(await checkbox.isChecked())) {
+      await checkbox.check({ force: true });
+    }
+  }
+}
+
 async function advanceToPaymentEntry(page) {
   for (let step = 0; step < 3; step += 1) {
     if (await page.locator(PAYMENT_NUMBER_SELECTOR).isVisible().catch(() => false)) return;
@@ -179,6 +195,7 @@ async function confirmPayment(page, context) {
 }
 
 module.exports = {
+  agreeToPurchaseTerms,
   advanceToPaymentEntry,
   confirmPayment,
   fillPaymentEntry,

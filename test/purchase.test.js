@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  agreeToPurchaseTerms,
   advanceToPaymentEntry,
   confirmPayment,
   isTicketCountMismatchError,
@@ -92,6 +93,33 @@ test('advanceToPaymentEntry waits for and clicks the updated checkout label', as
   await advanceToPaymentEntry(page);
 
   assert.deepEqual(calls, ['checkout']);
+});
+
+test('agreeToPurchaseTerms checks every unchecked purchase agreement', async () => {
+  const checks = [false, true];
+  const calls = [];
+  const page = {
+    locator(selector) {
+      assert.equal(selector, '#purchase_term_check input[name="purchase-check"]');
+      return {
+        async count() { return checks.length; },
+        nth(index) {
+          return {
+            async isChecked() { return checks[index]; },
+            async check(options) {
+              calls.push({ index, options });
+              checks[index] = true;
+            },
+          };
+        },
+      };
+    },
+  };
+
+  await agreeToPurchaseTerms(page);
+
+  assert.deepEqual(checks, [true, true]);
+  assert.deepEqual(calls, [{ index: 0, options: { force: true } }]);
 });
 
 function createLoginPage({ emailVisible = false, loginVisible = false, onLoginClick = () => {} } = {}) {
