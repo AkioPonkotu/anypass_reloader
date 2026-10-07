@@ -95,6 +95,41 @@ test('advanceToPaymentEntry waits for and clicks the updated checkout label', as
   assert.deepEqual(calls, ['checkout']);
 });
 
+test('advanceToPaymentEntry clicks the credit-card-information entry button', async () => {
+  const calls = [];
+  let paymentVisible = false;
+  const hidden = createLocator({ visible: false, onClick: () => {} });
+  const checkout = createLocator({
+    visible: true,
+    onClick: () => {
+      calls.push('card-entry');
+      paymentVisible = true;
+    },
+  });
+  const payment = {
+    async isVisible() {
+      return paymentVisible;
+    },
+    async waitFor() {
+      assert.equal(paymentVisible, true);
+    },
+  };
+  const page = {
+    locator(selector) {
+      return selector === '#ccNumber_disp' ? payment : hidden;
+    },
+    getByRole(role, options) {
+      if (role === 'button' && options.name.test('クレジットカード情報入力')) return checkout;
+      return hidden;
+    },
+    async waitForTimeout() {},
+  };
+
+  await advanceToPaymentEntry(page);
+
+  assert.deepEqual(calls, ['card-entry']);
+});
+
 test('agreeToPurchaseTerms checks every unchecked purchase agreement', async () => {
   const checks = [false, true];
   const calls = [];
