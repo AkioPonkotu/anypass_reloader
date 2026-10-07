@@ -29,3 +29,28 @@ test('normalizeConfig rejects an empty search condition and too-fast reloads', (
     /1 円以上/
   );
 });
+
+test('normalizeConfig normalizes inclusive date range boundaries', () => {
+  const config = normalizeConfig(
+    { p_date_from: '2026/10/01', p_date_to: '2026-10-31' },
+    'C:/work/anypass'
+  );
+
+  assert.equal(config.dateFrom, '2026-10-01');
+  assert.equal(config.dateTo, '2026-10-31');
+});
+
+test('normalizeConfig rejects invalid or reversed date ranges', () => {
+  assert.throws(
+    () => normalizeConfig({ p_date_from: '2026/02/29' }, 'C:/work/anypass'),
+    /実在する日付/
+  );
+  assert.throws(
+    () =>
+      normalizeConfig(
+        { p_date_from: '2026/10/31', p_date_to: '2026/10/01' },
+        'C:/work/anypass'
+      ),
+    /以前の日付/
+  );
+});

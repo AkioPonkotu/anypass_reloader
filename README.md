@@ -19,13 +19,15 @@ Copy-Item config.example.json config.json
 ```
 
 `config.json` を編集して監視条件を設定します。少なくとも `free_word`、`p_date`、
-`num_of_ticket`、`max_price_per_ticket` のいずれか一つが必要です。条件なしで最初の出品を検出する事故を
+`p_date_from`、`p_date_to`、`num_of_ticket`、`max_price_per_ticket` のいずれか一つが必要です。条件なしで最初の出品を検出する事故を
 避けるため、空の条件では起動しません。
 
 ```json
 {
   "free_word": "アーティスト名またはツアー名",
   "p_date": "2026/10/15",
+  "p_date_from": "2026/10/01",
+  "p_date_to": "2026/10/31",
   "num_of_ticket": 2,
   "max_price_per_ticket": 12000,
   "reload_time": 10,
@@ -40,6 +42,8 @@ Copy-Item config.example.json config.json
 | --- | --- |
 | `free_word` | サイトのフリーワード検索に入力する文字列。空欄可。 |
 | `p_date` | 一覧に表示される公演日。空白・全角数字を無視して部分一致で照合。 |
+| `p_date_from` | 公演日の範囲の開始日（含む）。`YYYY/MM/DD` または `YYYY-MM-DD` 形式。単独指定も可。 |
+| `p_date_to` | 公演日の範囲の終了日（含む）。`YYYY/MM/DD` または `YYYY-MM-DD` 形式。単独指定も可。開始日と終了日の両方を指定する場合、開始日は終了日以前にする必要があります。 |
 | `num_of_ticket` | 希望枚数。結果の「× N枚」と完全一致で照合。3 以上ではサイト側の「3枚以上」フィルターを使用。 |
 | `max_price_per_ticket` | 1 枚当たりの予算上限（円）。任意の正の整数を指定でき、検出対象は一覧の「¥N/1枚」がこの金額以下のものだけになります。サイトの金額選択肢にない金額は、直上の選択肢で事前に絞り込んだうえで、プログラム側で厳密に除外します。`budget` も互換名として利用できます。 |
 | `reload_time` | 未検出時の再検索間隔（秒）。最低 3 秒、既定 10 秒。 |
