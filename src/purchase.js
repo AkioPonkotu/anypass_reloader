@@ -139,15 +139,47 @@ async function setPurchaseTicketCount(page, ticketCount, matchedTicket) {
 async function agreeToPurchaseTerms(page) {
   // AnyPASS の詳細画面では、#purchase_term_check 内の全ての規約同意を
   // チェックするまで「購入手続きへ」が disabled のままになる。
-  // custom checkbox の見た目に左右されず、実際の input を操作して click
-  // イベントを発火させる。
+  // input 自体は画面外へ隠されることがある。その場合は force: true でも
+  // Playwright がクリック座標を取得できず "Element is outside of the viewport"
+  // で失敗するため、まず利用者が見るラベルをクリックする。
   const checkboxes = page.locator('#purchase_term_check input[name="purchase-check"]');
   const checkboxCount = await checkboxes.count();
 
   for (let index = 0; index < checkboxCount; index += 1) {
     const checkbox = checkboxes.nth(index);
+    if (await checkbox.isChecked()) continue;
+
+    const labels = [
+      checkbox.locator('xpath=ancestor::label[1]'),
+      checkbox.locator('xpath=following-sibling::label[1]'),
+    ];
+
+    for (const label of labels) {
+      if ((await label.count()) === 0 || !(await label.first().isVisible().catch(() => false))) continue;
+      try {
+        await label.first().click({ noWaitAfter: true });
+      } catch {
+        // 独自 UI の被覆などでラベルを押せない場合は次の手段を試す。
+      }
+      if (await checkbox.isChecked()) break;
+    }
+
     if (!(await checkbox.isChecked())) {
-      await checkbox.check({ force: true });
+      try {
+        await checkbox.check({ force: true });
+      } catch {
+        // 画面外に隠れた input は check() が失敗し得る。下の標準 click へ進む。
+      }
+    }
+
+    if (!(await checkbox.isChecked())) {
+      // label を持たないカスタム checkbox 用の最終手段。HTMLElement#click() は
+      // checkbox の checked 値を更新し、サイトの click/change ハンドラも実行する。
+      await checkbox.evaluate((input) => input.click());
+    }
+
+    if (!(await checkbox.isChecked())) {
+      throw new Error(`規約同意チェックボックス ${index + 1} を選択できませんでした。`);
     }
   }
 }

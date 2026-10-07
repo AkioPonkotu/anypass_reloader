@@ -106,6 +106,12 @@ test('agreeToPurchaseTerms checks every unchecked purchase agreement', async () 
         nth(index) {
           return {
             async isChecked() { return checks[index]; },
+            locator() {
+              return {
+                async count() { return 0; },
+                first() { return this; },
+              };
+            },
             async check(options) {
               calls.push({ index, options });
               checks[index] = true;
@@ -120,6 +126,81 @@ test('agreeToPurchaseTerms checks every unchecked purchase agreement', async () 
 
   assert.deepEqual(checks, [true, true]);
   assert.deepEqual(calls, [{ index: 0, options: { force: true } }]);
+});
+
+test('agreeToPurchaseTerms clicks the visible label when its checkbox is outside the viewport', async () => {
+  let checked = false;
+  const calls = [];
+  const visibleLabel = {
+    async count() { return 1; },
+    first() { return this; },
+    async isVisible() { return true; },
+    async click(options) {
+      calls.push({ target: 'label', options });
+      checked = true;
+    },
+  };
+  const hiddenLabel = {
+    async count() { return 0; },
+    first() { return this; },
+  };
+  const checkbox = {
+    async isChecked() { return checked; },
+    locator(selector) {
+      return selector.includes('following-sibling') ? visibleLabel : hiddenLabel;
+    },
+    async check() {
+      throw new Error('Element is outside of the viewport');
+    },
+  };
+  const page = {
+    locator(selector) {
+      assert.equal(selector, '#purchase_term_check input[name="purchase-check"]');
+      return {
+        async count() { return 1; },
+        nth() { return checkbox; },
+      };
+    },
+  };
+
+  await agreeToPurchaseTerms(page);
+
+  assert.equal(checked, true);
+  assert.deepEqual(calls, [{ target: 'label', options: { noWaitAfter: true } }]);
+});
+
+test('agreeToPurchaseTerms falls back to a DOM click when no visible label exists', async () => {
+  let checked = false;
+  const calls = [];
+  const checkbox = {
+    async isChecked() { return checked; },
+    locator() {
+      return {
+        async count() { return 0; },
+        first() { return this; },
+      };
+    },
+    async check() {
+      throw new Error('Element is outside of the viewport');
+    },
+    async evaluate(callback) {
+      calls.push('evaluate');
+      callback({ click: () => { checked = true; } });
+    },
+  };
+  const page = {
+    locator() {
+      return {
+        async count() { return 1; },
+        nth() { return checkbox; },
+      };
+    },
+  };
+
+  await agreeToPurchaseTerms(page);
+
+  assert.equal(checked, true);
+  assert.deepEqual(calls, ['evaluate']);
 });
 
 function createLoginPage({ emailVisible = false, loginVisible = false, onLoginClick = () => {} } = {}) {
