@@ -90,6 +90,11 @@ function createDesktopController({
     status: 'idle', authStatus: 'checking', logs: [], controller: null, error: null, automationBrowser: null,
   };
   let views;
+  // UI は browserView のロードより先に読み込まれる。起動時に候補の取得 IPC が
+  // 到着しても、about:blank の WebContents から取得してしまわないよう、実際の
+  // AnyPASS 画面をロードし終えるまで待機させる。
+  let resolveViewsReady;
+  const viewsReady = new Promise((resolve) => { resolveViewsReady = resolve; });
   let uiWebContents;
   let authenticationCheck;
   let authenticationTimer;
@@ -299,7 +304,10 @@ function createDesktopController({
     if (state.status === 'running' || state.status === 'stopping') {
       throw new Error('監視中は候補を更新できません。');
     }
-    if (!views) throw new Error('画面の準備が完了していません。');
+    // desktop-app.js は UI のロード完了と同時に自動更新を始める。一方 createViews()
+    // は右側の browserView を後からロードするため、ここで待たないと起動直後だけ
+    // 空の候補を返し、保存済みの選択値が「現在候補にない」と誤表示される。
+    await viewsReady;
 
     let automation;
     try {
@@ -356,6 +364,7 @@ function createDesktopController({
       });
       // テスト用の createWindow など、コールバックを実装しない生成関数にも対応する。
       uiWebContents ||= views.uiView.webContents;
+      resolveViewsReady();
       registerIpc();
       views.browserView.webContents.on('did-finish-load', () => {
         void refreshAuthentication().catch((error) => addLog(`認証状態を確認できませんでした: ${error.message}`));

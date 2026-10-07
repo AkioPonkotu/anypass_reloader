@@ -81,13 +81,17 @@ function selectedValue(config, name) {
 }
 
 function renderSearchOptions(options, config) {
+  const choicesLoaded = Boolean(options);
   for (const name of ['search_artist', 'search_event', 'search_tour']) {
     const select = input(name);
     const selected = selectedValue(config, name);
     const choices = options?.[name] || [];
-    select.replaceChildren(new Option('指定なし', ''));
+    select.replaceChildren(new Option(choicesLoaded ? '指定なし' : '候補を取得中…', ''));
     if (selected && !choices.some((choice) => choice.value === selected)) {
-      select.add(new Option(`現在候補にない保存済みの値 (${selected})`, selected));
+      const label = choicesLoaded
+        ? `現在候補にない保存済みの値 (${selected})`
+        : `保存済みの値を確認中 (${selected})`;
+      select.add(new Option(label, selected));
     }
     for (const choice of choices) select.add(new Option(choice.label, choice.value));
     select.value = selected;
