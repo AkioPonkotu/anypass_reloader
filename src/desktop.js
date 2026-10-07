@@ -171,11 +171,6 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     }, 1_500);
   }
 
-  function stopAuthenticationMonitor() {
-    clearInterval(authenticationTimer);
-    authenticationTimer = null;
-  }
-
   async function start() {
     if (state.status === 'running' || state.status === 'stopping') throw new Error('監視はすでに実行中です。');
     if (!views) throw new Error('画面の準備が完了していません。');
@@ -225,7 +220,6 @@ function createDesktopController({ configPath, createWindow = createViews }) {
         addLog(`エラー: ${state.error}`);
       }
     } finally {
-      stopAuthenticationMonitor();
       state.controller = null;
       await state.automationBrowser?.close().catch(() => {});
       state.automationBrowser = null;
@@ -290,6 +284,10 @@ function createDesktopController({ configPath, createWindow = createViews }) {
         void refreshAuthentication().catch((error) => addLog(`認証状態を確認できませんでした: ${error.message}`));
       });
       await refreshAuthentication();
+      // AnyPASS は一覧の HTML を返したあとヘッダーをクライアント側で更新するため、
+      // did-finish-load だけではログインボタンへの切り替わりを取りこぼすことがある。
+      // アイドル中も短い間隔で確認し、起動直後の未ログインを確実にログイン画面へ送る。
+      startAuthenticationMonitor();
       return views;
     },
     start,
