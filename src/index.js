@@ -7,6 +7,7 @@ const {
   advanceToPaymentEntry,
   confirmPayment,
   fillPaymentEntry,
+  isLoginRequired,
   loginIfNeeded,
   setPurchaseTicketCount,
 } = require('./purchase');
@@ -14,6 +15,21 @@ const {
 const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
 const FORM_SELECTOR = 'form#resale_sidebar_pc_search_form';
 const TICKET_SELECTOR = 'a.item.resale-list-item';
+const LOGIN_REQUIRED_CODE = 'LOGIN_REQUIRED';
+
+function loginRequiredError() {
+  const error = new Error('AnyPASS への再ログインが必要です。右側の画面でログインしてから監視を開始してください。');
+  error.code = LOGIN_REQUIRED_CODE;
+  return error;
+}
+
+async function ensureLoggedIn(page, auth, { manualLogin = false } = {}) {
+  if (!(await isLoginRequired(page))) return;
+  if (manualLogin) throw loginRequiredError();
+
+  await loginIfNeeded(page, auth);
+  if (await isLoginRequired(page)) throw loginRequiredError();
+}
 
 function parseArguments(argv) {
   const options = { configPath: 'config.json', once: false, headed: false };
@@ -124,8 +140,9 @@ async function collectTickets(page) {
   );
 }
 
-async function searchOnce(page, config) {
+async function searchOnce(page, config, authentication = {}) {
   await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+  await ensureLoggedIn(page, config.auth, authentication);
   await applySearchFilter(page, config);
 
   const tickets = await collectTickets(page);
@@ -193,10 +210,10 @@ async function run(options) {
 
   try {
     await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await loginIfNeeded(page, config.auth);
+    await ensureLoggedIn(page, config.auth, { manualLogin: options.manualLogin });
 
     do {
-      const { tickets, match } = await searchOnce(page, config);
+      const { tickets, match } = await searchOnce(page, config, { manualLogin: options.manualLogin });
 
       if (match) {
         writeLog(`条件に一致するチケットを検出しました: ${match.url}`);
@@ -255,6 +272,8 @@ if (require.main === module) {
 module.exports = {
   run,
   collectTickets,
+  ensureLoggedIn,
+  LOGIN_REQUIRED_CODE,
   parseArguments,
   searchOnce,
   serverPriceMaxForBudget,

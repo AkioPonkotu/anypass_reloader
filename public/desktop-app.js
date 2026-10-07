@@ -6,8 +6,9 @@ const showResaleButton = document.querySelector('#show-resale-button');
 const message = document.querySelector('#form-message');
 const stateElement = document.querySelector('#watch-state');
 const stateLabel = document.querySelector('#watch-state-label');
+const authStateElement = document.querySelector('#auth-state');
 const logList = document.querySelector('#log-list');
-const stateLabels = { idle: '準備完了', running: '監視中', stopping: '停止しています', matched: 'チケットを検出', error: 'エラー' };
+const stateLabels = { idle: '準備完了', running: '監視中', stopping: '停止しています', matched: 'チケットを検出', error: 'エラー', 'login-required': '再ログインが必要' };
 
 function input(name) { return form.elements.namedItem(name); }
 function value(name) { return input(name).value.trim(); }
@@ -37,7 +38,12 @@ function renderStatus(status) {
   stateElement.className = `watch-state ${current}`;
   stateLabel.textContent = stateLabels[current] || current;
   const active = current === 'running' || current === 'stopping';
-  startButton.disabled = active; saveButton.disabled = active; stopButton.hidden = !active; showResaleButton.disabled = active;
+  const authenticationPending = status.authStatus !== 'authenticated';
+  startButton.disabled = active || authenticationPending; saveButton.disabled = active; stopButton.hidden = !active; showResaleButton.disabled = active;
+  authStateElement.hidden = !authenticationPending;
+  authStateElement.textContent = status.authStatus === 'required'
+    ? 'AnyPASS への再ログインが必要です。右側の画面でログインすると監視を開始できます。'
+    : 'AnyPASS のログイン状態を確認しています。';
   for (const element of form.querySelectorAll('input')) element.disabled = active;
   if (!status.logs?.length) {
     logList.innerHTML = '<li class="empty">監視を開始すると、ここに状況が表示されます。</li>';

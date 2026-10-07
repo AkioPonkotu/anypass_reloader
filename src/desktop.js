@@ -5,8 +5,9 @@ const { app, BaseWindow, WebContentsView, ipcMain } = electron;
 const { chromium } = require('playwright');
 const { isElectronMainProcess } = require('./electron-main');
 const { normalizeConfig } = require('./config');
-const { run } = require('./index');
+const { run, LOGIN_REQUIRED_CODE } = require('./index');
 const { mergeConfig, sanitizeConfig } = require('./gui');
+const { isLoginRequired, openLoginPageIfNeeded } = require('./purchase');
 
 const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
 const DEBUG_PORT = 9412;
@@ -67,9 +68,13 @@ async function writeJson(filePath, value) {
 
 function createDesktopController({ configPath, createWindow = createViews }) {
   const absoluteConfigPath = path.resolve(configPath);
-  const state = { status: 'idle', logs: [], controller: null, error: null, automationBrowser: null };
+  const state = {
+    status: 'idle', authStatus: 'checking', logs: [], controller: null, error: null, automationBrowser: null,
+  };
   let views;
   let uiWebContents;
+  let authenticationCheck;
+  let authenticationTimer;
 
   const addLog = (message) => {
     state.logs = [...state.logs, { time: timestamp(), message }].slice(-LOG_LIMIT);
@@ -77,6 +82,7 @@ function createDesktopController({ configPath, createWindow = createViews }) {
   };
   const snapshot = () => ({
     status: state.status,
+    authStatus: state.authStatus,
     error: state.error,
     logs: state.logs,
     configPath: absoluteConfigPath,
@@ -100,15 +106,78 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     return { browser, context, page };
   }
 
+  function setLoginRequired() {
+    const changed = state.authStatus !== 'required';
+    state.authStatus = 'required';
+    if (changed) addLog('AnyPASS への再ログインが必要です。右側の画面でログインしてください。');
+
+    if (state.controller && !state.controller.signal.aborted) {
+      state.status = 'stopping';
+      state.controller.abort();
+    } else if (state.status !== 'running' && state.status !== 'stopping') {
+      state.status = 'login-required';
+    }
+  }
+
+  async function refreshAuthenticationNow() {
+    if (!views || views.browserView.webContents.isDestroyed()) return snapshot();
+    if (!views.browserView.webContents.getURL().startsWith('https://store.anypass.jp/')) return snapshot();
+
+    let automation;
+    try {
+      automation = await getEmbeddedPage(views.browserView);
+      if (await isLoginRequired(automation.page)) {
+        setLoginRequired();
+        // 一覧のヘッダーにログインボタンが表示された場合も、すぐ入力画面へ遷移する。
+        await openLoginPageIfNeeded(automation.page);
+      } else {
+        const changed = state.authStatus !== 'authenticated';
+        state.authStatus = 'authenticated';
+        if (state.status === 'login-required') state.status = 'idle';
+        if (changed) addLog('AnyPASS のログイン状態を確認しました。');
+      }
+    } catch (error) {
+      // 画面遷移の最中は CDP の Page 対応付けが一時的にできないことがあるため、次の
+      // did-finish-load で再試行する。利用者に誤った認証エラーを表示しない。
+      if (!/埋め込みブラウザに接続できませんでした/.test(error.message || '')) throw error;
+    } finally {
+      await automation?.browser.close().catch(() => {});
+    }
+    return snapshot();
+  }
+
+  function refreshAuthentication() {
+    authenticationCheck ||= refreshAuthenticationNow().finally(() => { authenticationCheck = null; });
+    return authenticationCheck;
+  }
+
+  function startAuthenticationMonitor() {
+    clearInterval(authenticationTimer);
+    authenticationTimer = setInterval(() => {
+      void refreshAuthentication().catch((error) => addLog(`認証状態を確認できませんでした: ${error.message}`));
+    }, 1_500);
+  }
+
+  function stopAuthenticationMonitor() {
+    clearInterval(authenticationTimer);
+    authenticationTimer = null;
+  }
+
   async function start() {
     if (state.status === 'running' || state.status === 'stopping') throw new Error('監視はすでに実行中です。');
     if (!views) throw new Error('画面の準備が完了していません。');
+    await refreshAuthentication();
+    if (state.authStatus !== 'authenticated') {
+      throw new Error('AnyPASS への再ログインが必要です。右側の画面でログインしてから開始してください。');
+    }
 
     state.status = 'running';
     state.error = null;
     state.logs = [];
     state.controller = new AbortController();
     addLog('GUI内のブラウザで監視を開始しました。');
+    // SPA のヘッダーだけが更新されてログインボタンに戻る場合にも、短い間隔で検知する。
+    startAuthenticationMonitor();
 
     try {
       const automation = await getEmbeddedPage(views.browserView);
@@ -119,19 +188,30 @@ function createDesktopController({ configPath, createWindow = createViews }) {
         log: addLog,
         context: automation.context,
         page: automation.page,
+        manualLogin: true,
       });
       if (state.controller.signal.aborted) {
-        state.status = 'idle';
-        addLog('監視を停止しました。画面はそのまま確認できます。');
+        if (state.authStatus === 'required') {
+          state.status = 'login-required';
+          addLog('監視を停止しました。再ログイン後に開始できます。');
+        } else {
+          state.status = 'idle';
+          addLog('監視を停止しました。画面はそのまま確認できます。');
+        }
       } else {
         state.status = matched ? 'matched' : 'idle';
         addLog(matched ? '一致するチケットを検出しました。' : '監視を終了しました。');
       }
     } catch (error) {
-      state.status = 'error';
-      state.error = error.message || String(error);
-      addLog(`エラー: ${state.error}`);
+      if (error.code === LOGIN_REQUIRED_CODE) {
+        setLoginRequired();
+      } else {
+        state.status = 'error';
+        state.error = error.message || String(error);
+        addLog(`エラー: ${state.error}`);
+      }
     } finally {
+      stopAuthenticationMonitor();
       state.controller = null;
       await state.automationBrowser?.close().catch(() => {});
       state.automationBrowser = null;
@@ -192,6 +272,10 @@ function createDesktopController({ configPath, createWindow = createViews }) {
       // テスト用の createWindow など、コールバックを実装しない生成関数にも対応する。
       uiWebContents ||= views.uiView.webContents;
       registerIpc();
+      views.browserView.webContents.on('did-finish-load', () => {
+        void refreshAuthentication().catch((error) => addLog(`認証状態を確認できませんでした: ${error.message}`));
+      });
+      await refreshAuthentication();
       return views;
     },
     start,
@@ -266,7 +350,7 @@ async function createViews({ onUiViewCreated } = {}) {
   // desktop-app.js の初期化時 IPC より先にハンドラを登録する。
   onUiViewCreated?.(uiView);
   await uiView.webContents.loadFile(path.join(__dirname, '..', 'public', 'desktop.html'));
-  await browserView.webContents.loadURL('about:blank');
+  await browserView.webContents.loadURL(RESALE_LIST_URL);
   return { window, uiView, browserView };
 }
 

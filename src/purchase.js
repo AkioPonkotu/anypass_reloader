@@ -26,21 +26,44 @@ async function clickFirstVisible(locators, description) {
   await locator.click({ noWaitAfter: true });
 }
 
+function loginInputs(page) {
+  return [
+    page.locator('input[type="email"]'),
+    page.locator('input[name*="mail" i], input[id*="mail" i]'),
+  ];
+}
+
+function loginLinks(page) {
+  return [
+    page.getByRole('link', { name: LOGIN_LINK_NAMES }),
+    page.getByRole('button', { name: LOGIN_LINK_NAMES }),
+  ];
+}
+
+// Cookie の有無ではなく、実際に表示されているログイン導線で認証切れを判断する。
+// これにより、失効済み Cookie が残っている場合も手動ログインを促せる。
+async function isLoginRequired(page) {
+  return Boolean(await firstVisibleLocator([...loginInputs(page), ...loginLinks(page)]));
+}
+
+// 未ログイン時は AnyPASS のログイン導線を開く。すでにメールアドレス欄が見えている
+// 場合は遷移済みなので操作しない。
+async function openLoginPageIfNeeded(page) {
+  if (await firstVisibleLocator(loginInputs(page))) return true;
+  const loginLink = await firstVisibleLocator(loginLinks(page));
+  if (!loginLink) return false;
+  await loginLink.click({ noWaitAfter: true });
+  return true;
+}
+
 async function loginIfNeeded(page, auth) {
   if (!auth) return;
 
-  const emailInput = () =>
-    firstVisibleLocator([
-      page.locator('input[type="email"]'),
-      page.locator('input[name*="mail" i], input[id*="mail" i]'),
-    ]);
+  const emailInput = () => firstVisibleLocator(loginInputs(page));
   let email = await emailInput();
 
   if (!email) {
-    const loginLink = await firstVisibleLocator([
-      page.getByRole('link', { name: LOGIN_LINK_NAMES }),
-      page.getByRole('button', { name: LOGIN_LINK_NAMES }),
-    ]);
+    const loginLink = await firstVisibleLocator(loginLinks(page));
     if (!loginLink) return; // 保存済みのログイン状態である可能性がある。
     await loginLink.click({ noWaitAfter: true });
     await page
@@ -145,6 +168,8 @@ module.exports = {
   advanceToPaymentEntry,
   confirmPayment,
   fillPaymentEntry,
+  isLoginRequired,
   loginIfNeeded,
+  openLoginPageIfNeeded,
   setPurchaseTicketCount,
 };

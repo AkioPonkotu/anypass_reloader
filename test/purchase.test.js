@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { confirmPayment } = require('../src/purchase');
+const { confirmPayment, isLoginRequired, openLoginPageIfNeeded } = require('../src/purchase');
 
 function createLocator({ visible, onClick }) {
   return {
@@ -44,4 +44,34 @@ test('confirmPayment fails without a visible confirmation control', async () => 
   };
 
   await assert.rejects(confirmPayment(page), /決済確認ボタンが見つかりません/);
+});
+
+function createLoginPage({ emailVisible = false, loginVisible = false, onLoginClick = () => {} } = {}) {
+  const email = createLocator({ visible: emailVisible, onClick: () => {} });
+  const login = createLocator({ visible: loginVisible, onClick: onLoginClick });
+  return {
+    locator(selector) {
+      return selector.includes('email') || selector.includes('mail') ? email : createLocator({ visible: false, onClick: () => {} });
+    },
+    getByRole() {
+      return login;
+    },
+  };
+}
+
+test('isLoginRequired detects a visible login button', async () => {
+  assert.equal(await isLoginRequired(createLoginPage({ loginVisible: true })), true);
+  assert.equal(await isLoginRequired(createLoginPage()), false);
+});
+
+test('openLoginPageIfNeeded opens the login screen only from a login button', async () => {
+  const calls = [];
+  assert.equal(
+    await openLoginPageIfNeeded(createLoginPage({ loginVisible: true, onLoginClick: () => calls.push('login') })),
+    true
+  );
+  assert.deepEqual(calls, ['login']);
+
+  assert.equal(await openLoginPageIfNeeded(createLoginPage({ emailVisible: true })), true);
+  assert.deepEqual(calls, ['login']);
 });
