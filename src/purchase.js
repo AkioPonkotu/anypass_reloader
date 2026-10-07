@@ -3,7 +3,7 @@ const PAYMENT_MONTH_SELECTOR = '#ccExpirationMonth';
 const PAYMENT_YEAR_SELECTOR = '#ccExpirationYear_disp';
 const PAYMENT_CVV_SELECTOR = '#securityCode';
 const PAYMENT_CONFIRMATION_NAMES = /^(?:確認|confirmation)$/i;
-const PURCHASE_CONFIRMATION_NAMES = /^(?:購入を?確定(?:する)?|購入する|注文を?確定(?:する)?|確定して購入|complete purchase|place order)$/i;
+const PURCHASE_CONFIRMATION_NAMES = /購入を?確定(?:する)?|購入する|注文を?確定(?:する)?|確定して購入|complete purchase|place order/i;
 const { extractTicketCount, isIndividualPurchaseUnavailable } = require('./tickets');
 
 const LOGIN_LINK_NAMES = /ログイン|sign in|log in/i;
@@ -146,7 +146,7 @@ async function fillPaymentEntry(page, creditCard) {
   await page.locator(PAYMENT_CVV_SELECTOR).fill(creditCard.cvv);
 }
 
-async function confirmPayment(page) {
+async function confirmPayment(page, context) {
   await clickFirstVisible(
     [
       page.getByRole('button', { name: PAYMENT_CONFIRMATION_NAMES }),
@@ -160,6 +160,11 @@ async function confirmPayment(page) {
     '購入確定ボタン',
     CHECKOUT_CONTROL_WAIT_MS
   );
+
+  // 3D セキュアがポップアップで開く場合、画面の生成を待ってからそのタブを返す。
+  // 同じタブで遷移する決済代行画面では元の page をそのまま返す。
+  if (typeof page.waitForTimeout === 'function') await page.waitForTimeout(500);
+  return context?.pages().findLast((candidate) => !candidate.isClosed()) || page;
 }
 
 module.exports = {

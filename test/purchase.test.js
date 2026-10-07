@@ -34,7 +34,7 @@ test('confirmPayment clicks the payment and purchase confirmation buttons', asyn
     getByRole(role, options) {
       if (role !== 'button') return hidden;
       if (options.name.test('確認')) return paymentConfirmation;
-      assert.match('購入を確定する', options.name);
+      assert.match('購入を確定する（支払いに同意）', options.name);
       return purchaseConfirmation;
     },
   };

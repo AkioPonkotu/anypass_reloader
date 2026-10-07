@@ -238,8 +238,8 @@ async function run(options) {
             await advanceToPaymentEntry(page);
             // 暗号化済みカードは、この入力直前にだけ呼び出し元で復号する。
             await fillPaymentEntry(page, await options.getCreditCard());
-            await confirmPayment(page);
-            await page.bringToFront();
+            const threeDSecurePage = await confirmPayment(page, context);
+            await threeDSecurePage.bringToFront();
             options.onThreeDSecure?.();
             writeLog('購入確定ボタンを押し、3Dセキュアを開始しました。表示中のブラウザで認証を完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
             await waitForManualCheckout(context, () => stopRequested);
