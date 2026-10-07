@@ -2,8 +2,8 @@
 
 `https://store.anypass.jp/resale-list` を headless Playwright で定期的に検索する
 Node.js CLI です。指定条件に一致するチケットが見つかると、詳細 URL と一覧の
-スクリーンショットを保存し、詳細ページを開いて終了します。購入・決済・購入確定の
-操作は行いません。
+スクリーンショットを保存し、詳細ページを開いて終了します。任意でログイン、購入手続き、
+決済情報の入力までを自動化できます。3D セキュアを開始する確認ボタンは自動では押しません。
 
 ## 必要環境
 
@@ -32,6 +32,17 @@ Copy-Item config.example.json config.json
   "reload_time": 10,
   "headless": true,
   "open_match_page": true,
+  "auto_purchase": false,
+  "auth": {
+    "email": "your-email@example.com",
+    "password": "your-password"
+  },
+  "credit_card": {
+    "number": "4111111111111111",
+    "expiration_month": "12",
+    "expiration_year": "2028",
+    "cvv": "123"
+  },
   "user_data_dir": ".anypass-profile",
   "screenshot_dir": "output/playwright"
 }
@@ -45,9 +56,14 @@ Copy-Item config.example.json config.json
 | `p_date_to` | 公演日の範囲の終了日（含む）。`YYYY/MM/DD` または `YYYY-MM-DD` 形式。単独指定も可。開始日と終了日の両方を指定する場合、開始日は終了日以前にする必要があります。`p_date` とは併用不可。 |
 | `num_of_ticket` | 希望枚数。結果の「× N枚」と完全一致で照合。3 以上ではサイト側の「3枚以上」フィルターを使用。 |
 | `max_price_per_ticket` | 1 枚当たりの予算上限（円）。任意の正の整数を指定でき、検出対象は一覧の「¥N/1枚」がこの金額以下のものだけになります。サイトの金額選択肢にない金額は、直上の選択肢で事前に絞り込んだうえで、プログラム側で厳密に除外します。`budget` も互換名として利用できます。 |
-| `reload_time` | 未検出時の再検索間隔（秒）。最低 3 秒、既定 10 秒。 |
+| `reload_time` | 未検出時の再検索間隔（秒）。最低 0.1 秒、既定 10 秒。 |
 | `headless` | `true` で画面を表示せずに実行。 |
-| `open_match_page` | 一致時に詳細ページへ移動するか。移動後も購入操作はしない。 |
+| `open_match_page` | 一致時に詳細ページへ移動するか。`auto_purchase` が `true` の場合は `true` が必須。 |
+| `auto_purchase` | `true` の場合、検出したチケットの購入手続きを進め、決済情報を入力する。既定は `false`。 |
+| `auth.email` / `auth.password` | 実行時ログインに使う AnyPASS アカウント。`auto_purchase: true` では必須。 |
+| `credit_card.number` | カード番号（数字のみ。空白・ハイフンは設定しても除去される）。`auto_purchase: true` では必須。 |
+| `credit_card.expiration_month` / `credit_card.expiration_year` | 有効期限。月は `01`〜`12`、年は 2 桁または 4 桁。 |
+| `credit_card.cvv` | セキュリティコード（3 桁）。`auto_purchase: true` では必須。 |
 | `user_data_dir` | Cookie・ログイン状態を保存する Chromium プロファイルのパス。 |
 | `screenshot_dir` | 一致時に一覧を保存するディレクトリ。 |
 
@@ -74,6 +90,17 @@ npm start -- --config config.json --headed --once
 
 停止は `Ctrl+C` です。プロファイル、設定ファイル、検出時のスクリーンショットは
 Git 管理から除外されています。
+
+## 購入手続きの自動化
+
+`config.json` に認証情報とカード情報を設定し、`auto_purchase` を `true` にします。
+`config.json` は Git 管理から除外済みです。カード番号、CVV、パスワードをログや
+スクリーンショットのファイル名に出力することはありません。
+
+購入手続きが始まると、`headless: true` の設定でもブラウザを強制的に表示します。
+カード情報を入力した「確認 / Confirmation」画面で止まるため、内容を目視確認してから
+利用者自身が確認操作を行ってください。これにより、3D セキュアの認証画面への遷移・
+購入確定は自動実行しません。
 
 ## 検証
 

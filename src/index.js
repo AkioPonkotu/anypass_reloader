@@ -3,6 +3,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 const { readConfig } = require('./config');
 const { findMatchingTicket } = require('./tickets');
+const { advanceToPaymentEntry, fillPaymentEntry, loginIfNeeded } = require('./purchase');
 
 const RESALE_LIST_URL = 'https://store.anypass.jp/resale-list';
 const FORM_SELECTOR = 'form#resale_sidebar_pc_search_form';
@@ -137,9 +138,24 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+async function waitForManualCheckout(page, isStopRequested) {
+  // 確認画面（およびユーザーが続けた 3D セキュア画面）を閉じないため、明示的な停止または
+  // ウィンドウを閉じる操作までプロセスを維持する。
+  while (!isStopRequested() && !page.isClosed()) {
+    await delay(500);
+  }
+}
+
 async function run(options) {
   const config = readConfig(options.configPath);
   if (options.headed) config.headless = false;
+
+  // Chromium は起動後に headless/headed を切り替えられない。決済情報入力画面と
+  // 3D セキュア直前を必ず利用者が見られるよう、自動購入時は最初から headed にする。
+  if (config.autoPurchase && config.headless) {
+    config.headless = false;
+    log('auto_purchase が有効なため、決済画面以降を表示できるようブラウザを headed で起動します。');
+  }
 
   const context = await chromium.launchPersistentContext(config.userDataDir, {
     headless: config.headless,
@@ -157,6 +173,9 @@ async function run(options) {
   process.once('SIGTERM', requestStop);
 
   try {
+    await page.goto(RESALE_LIST_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await loginIfNeeded(page, config.auth);
+
     do {
       const { tickets, match } = await searchOnce(page, config);
 
@@ -167,7 +186,15 @@ async function run(options) {
 
         if (config.openMatchPage) {
           await page.goto(match.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-          log('該当チケットの詳細ページを開きました。購入・確定操作は行いません。');
+          if (config.autoPurchase) {
+            await advanceToPaymentEntry(page);
+            await fillPaymentEntry(page, config.creditCard);
+            await page.bringToFront();
+            log('決済情報を入力しました。確認ボタンは押していません。3Dセキュア開始前に画面で内容を確認してください。ウィンドウを閉じるか Ctrl+C で終了します。');
+            await waitForManualCheckout(page, () => stopRequested);
+          } else {
+            log('該当チケットの詳細ページを開きました。購入・確定操作は行いません。');
+          }
         }
         return true;
       }

@@ -7,6 +7,17 @@
   "reload_time": 10,
   "headless": true,
   "open_match_page": true,
+  "auto_purchase": false,
+  "auth": {
+    "email": "your-email@example.com",
+    "password": "your-password"
+  },
+  "credit_card": {
+    "number": "4111111111111111",
+    "expiration_month": "12",
+    "expiration_year": "2028",
+    "cvv": "123"
+  },
   "user_data_dir": ".anypass-profile",
   "screenshot_dir": "output/playwright"
 }

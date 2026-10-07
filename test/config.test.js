@@ -62,3 +62,63 @@ test('normalizeConfig rejects invalid or reversed date ranges', () => {
     /同時に指定できません/
   );
 });
+
+test('normalizeConfig accepts checkout credentials and normalizes card fields', () => {
+  const config = normalizeConfig(
+    {
+      free_word: 'SOPHIA',
+      auto_purchase: true,
+      auth: { email: 'user@example.com', password: 'password with spaces ' },
+      credit_card: {
+        number: '4111-1111 1111-1111',
+        expiration_month: '7',
+        expiration_year: '2028',
+        cvv: '123',
+      },
+    },
+    'C:/work/anypass'
+  );
+
+  assert.equal(config.autoPurchase, true);
+  assert.deepEqual(config.auth, { email: 'user@example.com', password: 'password with spaces ' });
+  assert.deepEqual(config.creditCard, {
+    number: '4111111111111111',
+    expirationMonth: '07',
+    expirationYear: '28',
+    cvv: '123',
+  });
+});
+
+test('normalizeConfig requires complete authentication and card data for checkout', () => {
+  assert.throws(
+    () => normalizeConfig({ free_word: 'SOPHIA', auto_purchase: true }, 'C:/work/anypass'),
+    /auth.email/
+  );
+  assert.throws(
+    () =>
+      normalizeConfig(
+        {
+          free_word: 'SOPHIA',
+          auto_purchase: true,
+          auth: { email: 'user@example.com', password: 'password' },
+          credit_card: { number: '123', expiration_month: '13', expiration_year: 'x', cvv: '1' },
+        },
+        'C:/work/anypass'
+      ),
+    /credit_card/
+  );
+  assert.throws(
+    () =>
+      normalizeConfig(
+        {
+          free_word: 'SOPHIA',
+          auto_purchase: true,
+          open_match_page: false,
+          auth: { email: 'user@example.com', password: 'password' },
+          credit_card: { number: '4111111111111111', expiration_month: '12', expiration_year: '28', cvv: '123' },
+        },
+        'C:/work/anypass'
+      ),
+    /open_match_page/
+  );
+});
