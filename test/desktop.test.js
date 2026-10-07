@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { defaultConfigPath, parseDesktopArguments } = require('../src/desktop');
+const { defaultConfigPath, notifyAndFocus, parseDesktopArguments } = require('../src/desktop');
 
 test('parseDesktopArguments accepts a config file', () => {
   assert.deepEqual(parseDesktopArguments(['--config', 'desktop.json']), { configPath: 'desktop.json' });
@@ -13,4 +13,25 @@ test('defaultConfigPath uses the app user data directory for a packaged app', ()
     'C:\\Users\\test\\AppData\\Roaming\\AnyPASS Watcher\\config.json'
   );
   assert.equal(defaultConfigPath({ isPackaged: false }), 'config.json');
+});
+
+test('notifyAndFocus restores, foregrounds, and plays a notification sound', () => {
+  const calls = [];
+  const window = {
+    isDestroyed: () => false,
+    isMinimized: () => true,
+    restore: () => calls.push('restore'),
+    show: () => calls.push('show'),
+    focus: () => calls.push('focus'),
+  };
+
+  notifyAndFocus(window, { beep: () => calls.push('beep') });
+
+  assert.deepEqual(calls, ['restore', 'show', 'focus', 'beep']);
+});
+
+test('notifyAndFocus skips a destroyed window while still sounding the alert', () => {
+  const calls = [];
+  notifyAndFocus({ isDestroyed: () => true }, { beep: () => calls.push('beep') });
+  assert.deepEqual(calls, ['beep']);
 });

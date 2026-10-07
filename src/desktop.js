@@ -43,6 +43,15 @@ function usage() {
   return '使い方: npm run gui -- [--config config.json]';
 }
 
+function notifyAndFocus(window, shell = electron.shell) {
+  if (window && !(typeof window.isDestroyed === 'function' && window.isDestroyed())) {
+    if (typeof window.isMinimized === 'function' && window.isMinimized()) window.restore();
+    window.show?.();
+    window.focus?.();
+  }
+  shell?.beep?.();
+}
+
 function timestamp() {
   return new Date().toLocaleTimeString('ja-JP', {
     hour: '2-digit', minute: '2-digit', second: '2-digit',
@@ -80,6 +89,10 @@ function createDesktopController({ configPath, createWindow = createViews }) {
     state.logs = [...state.logs, { time: timestamp(), message }].slice(-LOG_LIMIT);
     console.log(`[Desktop ${timestamp()}] ${message}`);
   };
+  const notifyUser = (message) => {
+    notifyAndFocus(views?.window);
+    addLog(message);
+  };
   const snapshot = () => ({
     status: state.status,
     authStatus: state.authStatus,
@@ -109,7 +122,7 @@ function createDesktopController({ configPath, createWindow = createViews }) {
   function setLoginRequired() {
     const changed = state.authStatus !== 'required';
     state.authStatus = 'required';
-    if (changed) addLog('AnyPASS への再ログインが必要です。右側の画面でログインしてください。');
+    if (changed) notifyUser('AnyPASS への再ログインが必要です。右側の画面でログインしてください。');
 
     if (state.controller && !state.controller.signal.aborted) {
       state.status = 'stopping';
@@ -189,6 +202,7 @@ function createDesktopController({ configPath, createWindow = createViews }) {
         context: automation.context,
         page: automation.page,
         manualLogin: true,
+        onThreeDSecure: () => notifyUser('3Dセキュアを表示しました。右側の画面で認証を完了してください。'),
       });
       if (state.controller.signal.aborted) {
         if (state.authStatus === 'required') {
@@ -402,4 +416,4 @@ if (isElectronMainProcess()) {
   }
 }
 
-module.exports = { createDesktopController, defaultConfigPath, parseDesktopArguments };
+module.exports = { createDesktopController, defaultConfigPath, notifyAndFocus, parseDesktopArguments };

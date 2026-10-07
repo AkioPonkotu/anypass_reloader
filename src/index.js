@@ -228,6 +228,7 @@ async function run(options) {
             await fillPaymentEntry(page, config.creditCard);
             await confirmPayment(page);
             await page.bringToFront();
+            options.onThreeDSecure?.();
             writeLog('決済確認ボタンを押しました。3Dセキュアは表示中のブラウザで利用者自身が完了してください。ウィンドウを閉じるか Ctrl+C で終了します。');
             await waitForManualCheckout(context, () => stopRequested);
           } else {
