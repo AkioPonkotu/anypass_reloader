@@ -45,11 +45,11 @@ function usage() {
   return '使い方: npm run gui -- [--config config.json]';
 }
 
-function notifyAndFocus(window, shell = electron.shell) {
+function notifyAndFocus(window, shell = electron.shell, { focus = true } = {}) {
   if (window && !(typeof window.isDestroyed === 'function' && window.isDestroyed())) {
     if (typeof window.isMinimized === 'function' && window.isMinimized()) window.restore();
     window.show?.();
-    window.focus?.();
+    if (focus) window.focus?.();
   }
   shell?.beep?.();
 }
@@ -98,8 +98,8 @@ function createDesktopController({
     state.logs = [...state.logs, { time: timestamp(), message }].slice(-LOG_LIMIT);
     console.log(`[Desktop ${timestamp()}] ${message}`);
   };
-  const notifyUser = (message) => {
-    notifyAndFocus(views?.window);
+  const notifyUser = (message, options) => {
+    notifyAndFocus(views?.window, electron.shell, options);
     addLog(message);
   };
   const snapshot = () => ({
@@ -131,7 +131,13 @@ function createDesktopController({
   function setLoginRequired() {
     const changed = state.authStatus !== 'required';
     state.authStatus = 'required';
-    if (changed) notifyUser('AnyPASS への再ログインが必要です。右側の画面でログインしてください。');
+    // 認証状態は AnyPASS の SPA 描画中に一時的に揺れることがある。ここで
+    // ウィンドウを強制フォーカスすると、利用者が入力中の欄からフォーカスを奪うため、
+    // 再ログイン通知は音と表示だけにする。3D セキュア通知は従来どおり前面化する。
+    if (changed) notifyUser(
+      'AnyPASS への再ログインが必要です。右側の画面でログインしてください。',
+      { focus: false }
+    );
 
     if (state.controller && !state.controller.signal.aborted) {
       state.status = 'stopping';
